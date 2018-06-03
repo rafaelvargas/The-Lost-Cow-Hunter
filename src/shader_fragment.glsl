@@ -7,6 +7,12 @@
 in vec4 position_world;
 in vec4 normal;
 
+// Posição do vértice atual no sistema de coordenadas local do modelo.
+in vec4 position_model;
+
+// Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
+in vec2 texcoords;
+
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
 uniform mat4 view;
@@ -18,8 +24,17 @@ uniform mat4 projection;
 #define PLANE  2
 uniform int object_id;
 
-uniform vec4 camera_position;
 
+// Parâmetros da axis-aligned bounding box (AABB) do modelo
+uniform vec4 bbox_min;
+uniform vec4 bbox_max;
+
+// Variáveis para acesso das imagens de textura
+uniform sampler2D TextureImage0;
+uniform sampler2D TextureImage1;
+uniform sampler2D TextureImage2;
+
+uniform vec4 camera_position;
 // Atributos uteis a lanterna
 uniform vec4 camera_view_vector;
 uniform vec4 spotlight_down_offset_vector;
@@ -71,29 +86,52 @@ void main()
     vec3 Ks; // Refletância especular
     vec3 Ka; // Refletância ambiente
     float q; // Expoente especular para o modelo de iluminação de Phong
+    vec3 Kd0; // Refletância difusa
+
+    // Coordenadas de textura U e V
+    float U = 0.0;
+    float V = 0.0;
 
     if ( object_id == SPOTLIGHT )
     {
+        U = texcoords.x;
+        V = texcoords.y;
+
         // Propriedades espectrais da lanterna
-        Kd = vec3(0.8, 0.4, 0.08);
+        Kd = texture(TextureImage2, vec2(U,V)).rgb;
         Ks = vec3(0.0,0.0,0.0);
         Ka = Kd/2;
         q = 1.0;
+
     }
     else if ( object_id == BUNNY )
     {
+
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        
+        U = (position_model.x - minx) / (maxx - minx);
+        V = (position_model.y - miny) / (maxy - miny);
+
         // Propriedades espectrais do coelho
-        Kd = vec3(0.08, 0.4, 0.8);
+        Kd = texture(TextureImage1, vec2(U,V)).rgb;
         Ks = vec3 (0.8, 0.8, 0.8);
-        Ka = Kd/2;
-        q = 32.0;
+        Ka = Kd/5;
+        q = 5.0;
     }
     else if ( object_id == PLANE )
     {
         // Propriedades espectrais do plano
         Kd = vec3(0.2, 0.2, 0.2);
         Ks = vec3(0.3, 0.3, 0.3);
-        Ka = vec3(0.0, 0.0, 0.0);
+        Ka = vec3(0.01, 0.01, 0.01);
         q = 20.0;
     }
     else // Objeto desconhecido = preto
@@ -106,7 +144,7 @@ void main()
 
 
     // Espectro da fonte de iluminação
-    vec3 I = vec3(1.0, 1.0, 1.0); // PREENCH AQUI o espectro da fonte de luz
+    vec3 I = vec3(1.0, 1.0, 1.0); // PREENCHA AQUI o espectro da fonte de luz
 
     // Espectro da luz ambiente
     vec3 Ia = vec3 (0.1, 0.1, 0.1); // PREENCHA AQUI o espectro da luz ambiente
@@ -121,8 +159,7 @@ void main()
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term  = Ks*I*pow(max(0, dot(r, v)), q); // PREENCH AQUI o termo especular de Phong
 
-    // Cor final do fragmento calculada com uma combinação dos termos difuso,
-    // especular, e ambiente. Veja slide 134 do documento "Aula_17_e_18_Modelos_de_Iluminacao.pdf".
+
 
     // Angulo atual do raio de luz da lanterna em relacao a um vetor central
     float theta = dot(normalize(p-spotlight_position), normalize(spotlight_orientation));
@@ -136,10 +173,12 @@ void main()
     float epsilon = spotlight_outer_angle - spotlight_inner_angle;
     float intensity = clamp( (theta - spotlight_outer_angle) / epsilon, 0.0f, 1.0f);
 
-    
+
+
     // Spotlight test
     if(theta > cos(spotlight_outer_angle)){
-        color =  attenuation * intensity *(lambert_diffuse_term + phong_specular_term) + ambient_term ;
+        color =  attenuation * intensity *(lambert_diffuse_term + phong_specular_term) + ambient_term;
+        //color = Kd * max(0, dot(l, n));
     } else {
         color = ambient_term;
     }
