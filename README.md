@@ -9,3 +9,8 @@ OpenGL game implementation.
 * Execute the following command:
     
         make run
+		
+### CodeBlocks
+* Open CodeBlocks project
+		
+		The-Lost-Cow-Hunter.cbp
