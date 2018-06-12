@@ -178,11 +178,11 @@ GLuint g_NumLoadedTextures = 0;
 // ===== Funcoes e parametros adicionados para o funcionamento do jogo =====
 // =========================================================================
 
-// Variaveis uniform uteis para o spotlight
+// Variaveis uniform uteis para a lanterna
 GLint camera_position_uniform;
 GLint camera_view_vector_uniform;
-GLint spotlight_left_offset_vector_uniform;
-GLint spotlight_down_offset_vector_uniform;
+GLint flashlight_left_offset_vector_uniform;
+GLint flashlight_down_offset_vector_uniform;
 
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
 #define PLAYER_SPEED 4.5f
@@ -280,11 +280,11 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/FlashlightTexture.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
-    ObjModel spotlightmodel("../../data/flashlight.obj");
-    ComputeNormals(&spotlightmodel);
-    BuildTrianglesAndAddToVirtualScene(&spotlightmodel);
+    ObjModel flashlightmodel("../../data/flashlight.obj");
+    ComputeNormals(&flashlightmodel);
+    BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
-    //PrintObjModelInfo(&spotlightmodel);
+    //PrintObjModelInfo(&flashlightmodel);
 
     ObjModel bunnymodel("../../data/bunny.obj");
     ComputeNormals(&bunnymodel);
@@ -408,28 +408,28 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        #define SPOTLIGHT 0
+        #define FLASHLIGHT 0
         #define BUNNY  1
         #define PLANE  2
         #define WALL   3
 
         // Computa vetores para offsets da lanterna
-        glm::vec4 spotlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
-        spotlight_left_offset_vector = 0.2f * (spotlight_left_offset_vector/norm(spotlight_left_offset_vector));
+        glm::vec4 flashlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
+        flashlight_left_offset_vector = 0.2f * (flashlight_left_offset_vector/norm(flashlight_left_offset_vector));
 
-        glm::vec4 spotlight_down_offset_vector = crossproduct(spotlight_left_offset_vector, camera_view_vector);
-        spotlight_down_offset_vector = 0.1f * (spotlight_down_offset_vector / norm(spotlight_down_offset_vector));
+        glm::vec4 flashlight_down_offset_vector = crossproduct(flashlight_left_offset_vector, camera_view_vector);
+        flashlight_down_offset_vector = 0.1f * (flashlight_down_offset_vector / norm(flashlight_down_offset_vector));
 
         // Desenhamos o modelo da lanterna
-        model = Matrix_Translate(g_CameraPosition.x + spotlight_left_offset_vector.x + spotlight_down_offset_vector.x + 0.4*camera_view_vector.x,
-                                 g_CameraPosition.y + spotlight_left_offset_vector.y + spotlight_down_offset_vector.y + 0.4*camera_view_vector.y,
-                                 g_CameraPosition.z + spotlight_left_offset_vector.z + spotlight_down_offset_vector.z + 0.4*camera_view_vector.z)
+        model = Matrix_Translate(g_CameraPosition.x + flashlight_left_offset_vector.x + flashlight_down_offset_vector.x + 0.4*camera_view_vector.x,
+                                 g_CameraPosition.y + flashlight_left_offset_vector.y + flashlight_down_offset_vector.y + 0.4*camera_view_vector.y,
+                                 g_CameraPosition.z + flashlight_left_offset_vector.z + flashlight_down_offset_vector.z + 0.4*camera_view_vector.z)
                 * Matrix_Scale(0.05f, 0.05f, 0.05f)
                 * Matrix_Rotate_Y(3.14 + g_CameraTheta)
                 * Matrix_Rotate_X(g_CameraPhi);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         // Variaveis abaixo sao passadas para o shader para determinar a posicao da fonte de luz.
-        glUniform1i(object_id_uniform, SPOTLIGHT);
+        glUniform1i(object_id_uniform, FLASHLIGHT);
         DrawVirtualObject("flashlight");
 
 
@@ -473,8 +473,8 @@ int main(int argc, char* argv[])
         DrawVirtualObject("bunny");
 
         glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(camera_view_vector));
-        glUniform4fv(spotlight_left_offset_vector_uniform, 1 , glm::value_ptr(spotlight_left_offset_vector));
-        glUniform4fv(spotlight_down_offset_vector_uniform, 1 , glm::value_ptr(spotlight_down_offset_vector));
+        glUniform4fv(flashlight_left_offset_vector_uniform, 1 , glm::value_ptr(flashlight_left_offset_vector));
+        glUniform4fv(flashlight_down_offset_vector_uniform, 1 , glm::value_ptr(flashlight_down_offset_vector));
 
         // IMPRIME INFORMACOES NA TELA
 
@@ -661,8 +661,8 @@ void LoadShadersFromFiles()
 
     camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
     camera_position_uniform              = glGetUniformLocation(program_id, "camera_position");
-    spotlight_left_offset_vector_uniform = glGetUniformLocation(program_id, "spotlight_left_offset");
-    spotlight_down_offset_vector_uniform = glGetUniformLocation(program_id, "spotlight_down_offset");
+    flashlight_left_offset_vector_uniform = glGetUniformLocation(program_id, "flashlight_left_offset");
+    flashlight_down_offset_vector_uniform = glGetUniformLocation(program_id, "flashlight_down_offset");
 
 
 }
@@ -1344,7 +1344,7 @@ void HandleKeyActions() {
         if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
         if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
@@ -1674,3 +1674,7 @@ void PrintObjModelInfo(ObjModel* model)
     printf("\n");
   }
 }
+
+
+
+//void generateRandomObjectPos()

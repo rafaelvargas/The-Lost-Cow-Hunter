@@ -19,7 +19,7 @@ uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPOTLIGHT 0
+#define FLASHLIGHT 0
 #define BUNNY  1
 #define PLANE  2
 #define WALL   3
@@ -80,7 +80,7 @@ void main()
     vec4 v = normalize(camera_position - p);
 
     // Vetor que define o sentido da reflexão especular ideal.
-    vec4 r = -l + 2*n*dot(n, l); // PREENCHA AQUI o vetor de reflexão especular ideal
+    vec4 r = -l + 2*n*dot(n, l);
 
     // Parâmetros que definem as propriedades espectrais da superfície
     vec3 Kd; // Refletância difusa
@@ -93,7 +93,7 @@ void main()
     float U = 0.0;
     float V = 0.0;
 
-    if ( object_id == SPOTLIGHT )
+    if ( object_id == FLASHLIGHT )
     {
         U = texcoords.x;
         V = texcoords.y;
