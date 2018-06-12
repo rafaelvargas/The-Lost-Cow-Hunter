@@ -23,6 +23,8 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define WALL   3
+#define COW    4
+#define WORLD  5
 uniform int object_id;
 
 
@@ -34,6 +36,8 @@ uniform vec4 bbox_max;
 uniform sampler2D TextureImage0;
 uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
+uniform sampler2D TextureImage3;
+uniform sampler2D TextureImage4;
 
 uniform vec4 camera_position;
 // Atributos uteis a lanterna
@@ -142,6 +146,50 @@ void main()
         Ks = vec3(0.3, 0.3, 0.3);
         Ka = vec3(0.01, 0.01, 0.01);
         q = 20.0;
+    }
+    else if ( object_id == COW )
+    {
+        // Propriedades espectrais da vaca
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+
+        U = (position_model.x - minx) / (maxx - minx);
+        V = (position_model.y - miny) / (maxy - miny);
+
+        // Propriedades espectrais do coelho
+        Kd = texture(TextureImage4, vec2(U,V)).rgb;
+        Ks = vec3 (0.8, 0.8, 0.8);
+        Ka = Kd/5;
+        q = 5.0;
+    }
+    else if ( object_id == WORLD )
+    {
+        // Propriedades espectrais do mundo
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+
+        U = (position_model.x - minx) / (maxx - minx);
+        V = (position_model.y - miny) / (maxy - miny);
+
+        // Propriedades espectrais do coelho
+        Kd = texture(TextureImage3, vec2(U,V)).rgb;
+        Ks = vec3 (1.0, 1.0, 1.0);
+        Ka = Kd;
+        q = 5.0;
     }
     else // Objeto desconhecido = preto
     {

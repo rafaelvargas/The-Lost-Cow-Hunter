@@ -109,6 +109,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
+// Função para checar colisão com a vaca
+bool checkCowBBox(float my_x, float my_z);
+
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
 struct SceneObject
@@ -203,6 +206,13 @@ bool g_RightKeyPressed = false;
 void HandleKeyActions();
 float time_spent_on_loop;
 
+// Variaveis da Vaca
+bool spawn_cow = true;
+int cow_counter = 0;
+float cow_x = 0.0f;
+float cow_y = -0.5f;
+float cow_z = 0.0f;
+
 // =========================================================================
 // =========================================================================
 
@@ -232,7 +242,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "Game", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "The Lost Cow Hunter", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -281,6 +291,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/earth.jpg");
     LoadTextureImage("../../data/earth.jpg");
     LoadTextureImage("../../data/FlashlightTexture.jpg");
+    LoadTextureImage("../../data/sky.jpg");
+    LoadTextureImage("../../data/gold.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel flashlightmodel("../../data/flashlight.obj");
@@ -301,6 +313,14 @@ int main(int argc, char* argv[])
     ComputeNormals(&cubemodel);
     BuildTrianglesAndAddToVirtualScene(&cubemodel);
 
+    ObjModel cowmodel("../../data/cow.obj");
+    ComputeNormals(&cowmodel);
+    BuildTrianglesAndAddToVirtualScene(&cowmodel);
+
+    ObjModel worldmodel("../../data/sphere.obj");
+    ComputeNormals(&worldmodel);
+    BuildTrianglesAndAddToVirtualScene(&worldmodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -314,9 +334,9 @@ int main(int argc, char* argv[])
     glEnable(GL_DEPTH_TEST);
 
     // Habilitamos o Backface Culling. Veja slides 22 à 34 do documento "Aula_13_Clipping_and_Culling.pdf".
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_BACK);
+    //glFrontFace(GL_CCW);
 
     // Variáveis auxiliares utilizadas para chamada à função
     // TextRendering_ShowModelViewProjection(), armazenando matrizes 4x4.
@@ -328,6 +348,10 @@ int main(int argc, char* argv[])
     // Instancias uteis para o jogo
 
 
+    // Variaveis para animação da vaca
+    double time = glfwGetTime();
+    double speed = 0.4;
+    bool move_up = false;
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -357,7 +381,7 @@ int main(int argc, char* argv[])
         // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
         // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
         // e ScrollCallback().
-        
+
         glm::vec4 camera_view_vector;
         glm::vec4 camera_lookat_l;
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
@@ -395,7 +419,7 @@ int main(int argc, char* argv[])
         // estão no sentido negativo! Veja slides 191-194 do documento
         // "Aula_09_Projecoes.pdf".
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -10.0f; // Posição do "far plane"
+        float farplane  = -30.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -431,6 +455,8 @@ int main(int argc, char* argv[])
         #define BUNNY  1
         #define PLANE  2
         #define WALL   3
+        #define COW    4
+        #define WORLD  5
 
         // Computa vetores para offsets da lanterna
         glm::vec4 flashlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
@@ -482,6 +508,40 @@ int main(int argc, char* argv[])
         glUniform1i(object_id_uniform, WALL);
         DrawVirtualObject("cube");
 
+        // Desenhadmos a vaca em uma posição aleatória
+        // A vaca só será gerada novamente quando for encontrada
+        // O y vai sendo alterado pra gerar a animação
+        double new_time = glfwGetTime();
+        double time_step = new_time - time;
+        time = new_time;
+        float cow_y_step = cow_y + speed*time_step;
+        if (cow_y_step >= -0.5f)
+            move_up = false;
+        cow_y_step = cow_y - speed*time_step;
+        if (cow_y_step <= -0.7)
+            move_up = true;
+        if (move_up)
+            cow_y = cow_y + speed*time_step;
+        else
+            cow_y = cow_y - speed*time_step;
+        if (spawn_cow) {
+            cow_x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
+            cow_z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+            spawn_cow = false;
+        }
+        model = Matrix_Translate(cow_x,cow_y,cow_z) * Matrix_Scale(0.25f, 0.25f, 0.25f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, COW);
+        DrawVirtualObject("cow");
+
+        // Desenhamos o "mundo" para poder aplicar textura no ceu
+        float world_size = MAP_WIDTH_X + MAP_WIDTH_Z;
+        model = Matrix_Translate(0.0f,0.0f,0.0f) * Matrix_Scale(world_size, world_size, world_size);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, WORLD);
+        DrawVirtualObject("sphere");
+
+
         // Desenhamos o modelo do coelho
         model = Matrix_Translate(1.0f,0.0f,0.0f)
               * Matrix_Rotate_Z(g_AngleZ)
@@ -489,7 +549,7 @@ int main(int argc, char* argv[])
               * Matrix_Rotate_X(g_AngleX);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
-        DrawVirtualObject("bunny");
+        //DrawVirtualObject("bunny");
 
         glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(camera_view_vector));
         glUniform4fv(flashlight_left_offset_vector_uniform, 1 , glm::value_ptr(flashlight_left_offset_vector));
@@ -676,6 +736,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage0"), 0);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage1"), 1);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage2"), 2);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage3"), 3);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage4"), 4);
     glUseProgram(0);
 
     camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
@@ -1276,6 +1338,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
     }
 
+    if (key == GLFW_KEY_K && action == GLFW_PRESS)
+    {
+        spawn_cow = true;
+    }
+
     if (key == GLFW_KEY_Y && action == GLFW_PRESS)
     {
         g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
@@ -1364,9 +1431,29 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     }
 }
 
+bool checkCowBBox(float my_x, float my_z) {
+    float cow_bbox_minx = cow_x - 0.25;
+    float cow_bbox_maxx = cow_x + 0.25;
+    float cow_bbox_minz = cow_z - 0.25;
+    float cow_bbox_maxz = cow_z + 0.25;
+    if (my_x >= cow_bbox_minx && my_x <= cow_bbox_maxx)
+        if (my_z >= cow_bbox_minz && my_z <= cow_bbox_maxz)
+            return true;
+    return false;
+}
+
 void HandleKeyActions() {
+
     if (g_UpKeyPressed)
     {
+       //printf("COW X e Z: %g %g\n", cow_x, cow_z);
+       //printf("MEU X e Z: %g %g\n", g_CameraPosition.x, g_CameraPosition.z);
+        if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
+            cow_counter++;
+            printf("COUNTER: %i\n", cow_counter);
+            spawn_cow = true;
+        }
+
         float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
         if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
