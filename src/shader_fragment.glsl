@@ -22,6 +22,7 @@ uniform mat4 projection;
 #define SPOTLIGHT 0
 #define BUNNY  1
 #define PLANE  2
+#define WALL   3
 uniform int object_id;
 
 
@@ -52,9 +53,9 @@ void main()
     vec4 camera_position = inverse(view) * origin;
 
     // Spotlight
-    vec4 spotlight_position = camera_position 
-                            + 0.45*camera_view_vector 
-                            + spotlight_down_offset_vector 
+    vec4 spotlight_position = camera_position
+                            + 0.45*camera_view_vector
+                            + spotlight_down_offset_vector
                             + spotlight_left_offset_vector;
     vec4 spotlight_orientation = camera_view_vector;
     float spotlight_inner_angle = radians(45.0);
@@ -116,7 +117,7 @@ void main()
         float minz = bbox_min.z;
         float maxz = bbox_max.z;
 
-        
+
         U = (position_model.x - minx) / (maxx - minx);
         V = (position_model.y - miny) / (maxy - miny);
 
@@ -129,6 +130,14 @@ void main()
     else if ( object_id == PLANE )
     {
         // Propriedades espectrais do plano
+        Kd = vec3(0.2, 0.2, 0.2);
+        Ks = vec3(0.3, 0.3, 0.3);
+        Ka = vec3(0.01, 0.01, 0.01);
+        q = 20.0;
+    }
+    else if ( object_id == WALL )
+    {
+        // Propriedades espectrais da parede
         Kd = vec3(0.2, 0.2, 0.2);
         Ks = vec3(0.3, 0.3, 0.3);
         Ka = vec3(0.01, 0.01, 0.01);
@@ -150,7 +159,7 @@ void main()
     vec3 Ia = vec3 (0.1, 0.1, 0.1); // PREENCHA AQUI o espectro da luz ambiente
 
 
-    // Termo difuso utilizando a lei dos cossenos de Lambert 
+    // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term = Kd*I*max(0, dot(l, n)); // PREENCHA AQUI o termo difuso de Lambert
 
     // Termo ambiente
@@ -186,4 +195,4 @@ void main()
     // Cor final com correção gamma, considerando monitor sRGB.
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color = pow(color, vec3(1.0,1.0,1.0)/2.2);
-} 
+}

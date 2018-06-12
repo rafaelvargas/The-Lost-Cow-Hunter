@@ -63,7 +63,7 @@ struct ObjModel
 
         if (!ret)
             throw std::runtime_error("Erro ao carregar modelo.");
-        
+
         printf("OK.\n");
     }
 };
@@ -152,7 +152,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
-glm::vec4 g_CameraPosition = glm::vec4(0.0f,0.0f,2.5f,1.0f);
+glm::vec4 g_CameraPosition = glm::vec4(0.0f,0.0f,0.0f,1.0f);
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -185,8 +185,11 @@ GLint spotlight_left_offset_vector_uniform;
 GLint spotlight_down_offset_vector_uniform;
 
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
-#define PLAYER_SPEED 3.5f
+#define PLAYER_SPEED 4.5f
 #define PLAYER_INITIAL_POS glm::vec4(0.0f,0.0f,2.5f,1.0f)
+#define MAP_WIDTH_X 5.0f
+#define MAP_WIDTH_Z 5.0f
+#define WALL_HEIGHT 2.0f
 
 bool g_UpKeyPressed = false;
 bool g_DownKeyPressed = false;
@@ -291,6 +294,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
+    ObjModel cubemodel("../../data/cube.obj");
+    ComputeNormals(&cubemodel);
+    BuildTrianglesAndAddToVirtualScene(&cubemodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -317,7 +324,7 @@ int main(int argc, char* argv[])
 
     // Instancias uteis para o jogo
 
-    
+
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -404,6 +411,7 @@ int main(int argc, char* argv[])
         #define SPOTLIGHT 0
         #define BUNNY  1
         #define PLANE  2
+        #define WALL   3
 
         // Computa vetores para offsets da lanterna
         glm::vec4 spotlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
@@ -411,10 +419,10 @@ int main(int argc, char* argv[])
 
         glm::vec4 spotlight_down_offset_vector = crossproduct(spotlight_left_offset_vector, camera_view_vector);
         spotlight_down_offset_vector = 0.1f * (spotlight_down_offset_vector / norm(spotlight_down_offset_vector));
-        
+
         // Desenhamos o modelo da lanterna
-        model = Matrix_Translate(g_CameraPosition.x + spotlight_left_offset_vector.x + spotlight_down_offset_vector.x + 0.4*camera_view_vector.x, 
-                                 g_CameraPosition.y + spotlight_left_offset_vector.y + spotlight_down_offset_vector.y + 0.4*camera_view_vector.y, 
+        model = Matrix_Translate(g_CameraPosition.x + spotlight_left_offset_vector.x + spotlight_down_offset_vector.x + 0.4*camera_view_vector.x,
+                                 g_CameraPosition.y + spotlight_left_offset_vector.y + spotlight_down_offset_vector.y + 0.4*camera_view_vector.y,
                                  g_CameraPosition.z + spotlight_left_offset_vector.z + spotlight_down_offset_vector.z + 0.4*camera_view_vector.z)
                 * Matrix_Scale(0.05f, 0.05f, 0.05f)
                 * Matrix_Rotate_Y(3.14 + g_CameraTheta)
@@ -426,16 +434,39 @@ int main(int argc, char* argv[])
 
 
         // Desenhamos o modelo do plano
-        model = Matrix_Translate(0.0f,-1.0f,0.0f) * Matrix_Scale(10.0f, 1.0f, 10.0f);
+        model = Matrix_Translate(0.0f,-1.0f,0.0f) * Matrix_Scale(MAP_WIDTH_X, 1.0f, MAP_WIDTH_Z);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
         DrawVirtualObject("plane");
 
+        // Parede 1
+        model = Matrix_Translate(MAP_WIDTH_X+1,-1.0f,0.0f) * Matrix_Scale(1.0f, WALL_HEIGHT, MAP_WIDTH_X+2);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, WALL);
+        DrawVirtualObject("cube");
+
+        // Parede 2
+        model = Matrix_Translate(-(MAP_WIDTH_X+1),-1.0f,0.0f) * Matrix_Scale(1.0f, WALL_HEIGHT, MAP_WIDTH_X+2);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, WALL);
+        DrawVirtualObject("cube");
+
+        // Parede 3
+        model = Matrix_Translate(0.0f,-1.0f,(MAP_WIDTH_X+1)) * Matrix_Scale(MAP_WIDTH_X, WALL_HEIGHT, 1.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, WALL);
+        DrawVirtualObject("cube");
+
+        // Parede 3
+        model = Matrix_Translate(0.0f,-1.0f,-(MAP_WIDTH_X+1)) * Matrix_Scale(MAP_WIDTH_X, WALL_HEIGHT, 1.0f);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, WALL);
+        DrawVirtualObject("cube");
 
         // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f) 
-              * Matrix_Rotate_Z(g_AngleZ) 
-              * Matrix_Rotate_Y(g_AngleY) 
+        model = Matrix_Translate(1.0f,0.0f,0.0f)
+              * Matrix_Rotate_Z(g_AngleZ)
+              * Matrix_Rotate_Y(g_AngleY)
               * Matrix_Rotate_X(g_AngleX);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
@@ -446,7 +477,7 @@ int main(int argc, char* argv[])
         glUniform4fv(spotlight_down_offset_vector_uniform, 1 , glm::value_ptr(spotlight_down_offset_vector));
 
         // IMPRIME INFORMACOES NA TELA
-    
+
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
         // terceiro cubo.
         TextRendering_ShowEulerAngles(window);
@@ -457,7 +488,7 @@ int main(int argc, char* argv[])
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
         TextRendering_ShowFramesPerSecond(window);
-        
+
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -472,12 +503,14 @@ int main(int argc, char* argv[])
         // definidas anteriormente usando glfwSet*Callback() serão chamadas
         // pela biblioteca GLFW.
         glfwPollEvents();
-        
+
         float current_time = glfwGetTime();
         time_spent_on_loop = current_time - previous_time;
         //fprintf(stdout,"tempo %f\n", time_spent_on_loop);
         HandleKeyActions();
     }
+
+
 
     // Finalizamos o uso dos recursos do sistema operacional
     glfwTerminate();
@@ -626,7 +659,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage2"), 2);
     glUseProgram(0);
 
-    camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector"); 
+    camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
     camera_position_uniform              = glGetUniformLocation(program_id, "camera_position");
     spotlight_left_offset_vector_uniform = glGetUniformLocation(program_id, "spotlight_left_offset");
     spotlight_down_offset_vector_uniform = glGetUniformLocation(program_id, "spotlight_down_offset");
@@ -681,12 +714,12 @@ void ComputeNormals(ObjModel* model)
             const glm::vec3 v1 = glm::vec3(b[0]-c[0], b[1]-c[1], b[2]-c[2]);
             const glm::vec3 v2 = glm::vec3(b[0]-a[0], b[1]-a[1], b[2]-a[2]);
             const glm::vec3 result = glm::cross(v1,v2);
-	    
-            const glm::vec4  n = glm::vec4(result[0],result[1],result[2],0.0f);
-	    
 
-	    
-	    
+            const glm::vec4  n = glm::vec4(result[0],result[1],result[2],0.0f);
+
+
+
+
 
             for (size_t vertex = 0; vertex < 3; ++vertex)
             {
@@ -990,7 +1023,7 @@ GLuint CreateGpuProgram(GLuint vertex_shader_id, GLuint fragment_shader_id)
         fprintf(stderr, "%s", output.c_str());
     }
 
-    // Os "Shader Objects" podem ser marcados para deleção após serem linkados 
+    // Os "Shader Objects" podem ser marcados para deleção após serem linkados
     glDeleteShader(vertex_shader_id);
     glDeleteShader(fragment_shader_id);
 
@@ -1100,21 +1133,21 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
         float dx = xpos - g_LastCursorPosX;
         float dy = ypos - g_LastCursorPosY;
-    
+
         // Atualizamos parâmetros da câmera com os deslocamentos
         g_CameraTheta -= 0.01f*dx;
         g_CameraPhi   += 0.01f*dy;
-    
+
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
         float phimax = 3.141592f/2;
         float phimin = -phimax;
-    
+
         if (g_CameraPhi > phimax)
             g_CameraPhi = phimax;
-    
+
         if (g_CameraPhi < phimin)
             g_CameraPhi = phimin;
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
@@ -1123,7 +1156,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
     if (g_RightMouseButtonPressed)
     {
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
@@ -1132,33 +1165,33 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
     if (g_MiddleMouseButtonPressed)
     {
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
         g_LastCursorPosY = ypos;
     }
-    
+
     if (g_LeftMouseButtonPressed)
     {
         // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
         float dx = xpos - g_LastCursorPosX;
         float dy = ypos - g_LastCursorPosY;
-    
+
         // Atualizamos parâmetros da câmera com os deslocamentos
         g_CameraTheta -= 0.01f*dx;
         g_CameraPhi   += 0.01f*dy;
-    
+
         // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
         float phimax = 3.141592f/2;
         float phimin = -phimax;
-    
+
         if (g_CameraPhi > phimax)
             g_CameraPhi = phimax;
-    
+
         if (g_CameraPhi < phimin)
             g_CameraPhi = phimin;
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
@@ -1167,7 +1200,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
     if (g_RightMouseButtonPressed)
     {
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
@@ -1176,7 +1209,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
     if (g_MiddleMouseButtonPressed)
     {
-    
+
         // Atualizamos as variáveis globais para armazenar a posição atual do
         // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
@@ -1275,7 +1308,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     {
         g_UpKeyPressed = false;
     }
-    
+
     if (key == GLFW_KEY_S && action == GLFW_PRESS)
     {
         g_DownKeyPressed = true;
@@ -1284,7 +1317,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     {
         g_DownKeyPressed = false;
     }
-    
+
     if (key == GLFW_KEY_A && action == GLFW_PRESS)
     {
         g_LeftKeyPressed = true;
@@ -1307,28 +1340,56 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 void HandleKeyActions() {
     if (g_UpKeyPressed)
     {
-        g_CameraPosition.x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        g_CameraPosition.z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        //g_CameraPosition.y = g_CameraPosition.y - sin(g_CameraPhi); 
+        float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+            g_CameraPosition.x = new_cameraposition_x;
+        }
+        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+            g_CameraPosition.z = new_cameraposition_z;
+        }
+        //g_CameraPosition.y = g_CameraPosition.y - sin(g_CameraPhi);
     }
 
     if (g_DownKeyPressed)
     {
-        g_CameraPosition.x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        g_CameraPosition.z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        //g_CameraPosition.y = g_CameraPosition.y + sin(g_CameraPhi); 
+        float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+            g_CameraPosition.x = new_cameraposition_x;
+        }
+        float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
+        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+            g_CameraPosition.z = new_cameraposition_z;
+        }
+
+        //g_CameraPosition.y = g_CameraPosition.y + sin(g_CameraPhi);
     }
 
     if (g_LeftKeyPressed)
     {
-        g_CameraPosition.x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
-        g_CameraPosition.z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+
+        float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
+        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+            g_CameraPosition.x = new_cameraposition_x;
+        }
+        float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+            g_CameraPosition.z = new_cameraposition_z;
+        }
+
     }
 
     if (g_RightKeyPressed)
     {
-        g_CameraPosition.x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
-        g_CameraPosition.z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+        float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
+        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+            g_CameraPosition.x = new_cameraposition_x;
+        }
+        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+            g_CameraPosition.z = new_cameraposition_z;
+        }
+
     }
 }
 
@@ -1429,7 +1490,7 @@ void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
     if ( ellapsed_seconds > 1.0f )
     {
         numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
-    
+
         old_seconds = seconds;
         ellapsed_frames = 0;
     }
