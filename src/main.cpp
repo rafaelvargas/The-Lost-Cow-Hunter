@@ -154,6 +154,9 @@ float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 glm::vec4 g_CameraPosition = glm::vec4(0.0f,0.0f,0.0f,1.0f);
 
+// Variavel que controla o tipo de camera
+bool g_UseFreeCamera = true;
+
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
 
@@ -354,15 +357,31 @@ int main(int argc, char* argv[])
         // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
         // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
         // e ScrollCallback().
-        float vy = -sin(g_CameraPhi);
-        float vz = -cos(g_CameraPhi)*cos(g_CameraTheta);
-        float vx = -cos(g_CameraPhi)*sin(g_CameraTheta);
+        
+        glm::vec4 camera_view_vector;
+        glm::vec4 camera_lookat_l;
+        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+
+        if(g_UseFreeCamera) {
+            float vy = -sin(g_CameraPhi);
+            float vz = -cos(g_CameraPhi)*cos(g_CameraTheta);
+            float vx = -cos(g_CameraPhi)*sin(g_CameraTheta);
+            camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
+        } else {
+            // Para camera look-at
+            float r = g_CameraDistance;
+            float vy = r*sin(g_CameraPhi);
+            float vz = r*cos(g_CameraPhi)*cos(g_CameraTheta);
+            float vx = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+            g_CameraPosition  = glm::vec4(vx,vy,vz,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_view_vector = camera_lookat_l - g_CameraPosition; // Vetor "view", sentido para onde a câmera está virada
+        }
 
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 165-175 do documento "Aula_08_Sistemas_de_Coordenadas.pdf".
-        glm::vec4 camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
-        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+        //glm::vec4 camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slide 179 do
@@ -1300,6 +1319,14 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fflush(stdout);
     }
 
+    // Se usuario pressiona C, muda o tipo de camera free / look-at
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
+    {
+        g_UseFreeCamera = !g_UseFreeCamera;
+        g_CameraPosition.y = 0.0f;
+    }
+
+    // Se usuario aperta teclas WASD (movimento)
     if (key == GLFW_KEY_W && action == GLFW_PRESS)
     {
         g_UpKeyPressed = true;
