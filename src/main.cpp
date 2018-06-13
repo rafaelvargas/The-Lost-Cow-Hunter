@@ -74,7 +74,7 @@ struct ObjModel
 void BuildTrianglesAndAddToVirtualScene(ObjModel*); // Constrói representação de um ObjModel como malha de triângulos para renderização
 void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso não existam.
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
-void LoadTextureImage(const char* filename); // Função que carrega imagens de textura
+void LoadTextureImage(const char* filename, int image_id); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
@@ -99,6 +99,10 @@ void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 project
 void TextRendering_ShowEulerAngles(GLFWwindow* window);
 void TextRendering_ShowProjection(GLFWwindow* window);
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
+void TextRendering_ShowPoints(GLFWwindow* window);
+void TextRendering_ShowTime(GLFWwindow* window);
+void TextRendering_ShowGameOver(GLFWwindow* window);
+void TextRendering_ShowPlayAgain(GLFWwindow* window);
 
 // Funções callback para comunicação com o sistema operacional e interação do
 // usuário. Veja mais comentários nas definições das mesmas, abaixo.
@@ -193,9 +197,10 @@ GLint flashlight_down_offset_vector_uniform;
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
 #define PLAYER_SPEED 4.5f
 #define PLAYER_INITIAL_POS glm::vec4(0.0f,0.0f,2.5f,1.0f)
-#define MAP_WIDTH_X 5.0f
-#define MAP_WIDTH_Z 5.0f
-#define WALL_HEIGHT 2.0f
+#define MAP_WIDTH_X 25.0f
+#define MAP_WIDTH_Z 25.0f
+#define WALL_HEIGHT 1.0f
+#define HUNT_DURATION 30.0f
 
 bool g_UpKeyPressed = false;
 bool g_DownKeyPressed = false;
@@ -212,6 +217,13 @@ int cow_counter = 0;
 float cow_x = 0.0f;
 float cow_y = -0.5f;
 float cow_z = 0.0f;
+
+// Variaveis do tempo
+double beginning_time = glfwGetTime();
+double elapsed_time;
+
+// Variavel para ver se o jogo acabou
+bool game_over = false;
 
 // =========================================================================
 // =========================================================================
@@ -288,11 +300,13 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos uma imagem para ser utilizada como textura
-    LoadTextureImage("../../data/earth.jpg");
-    LoadTextureImage("../../data/earth.jpg");
-    LoadTextureImage("../../data/FlashlightTexture.jpg");
-    LoadTextureImage("../../data/sky.jpg");
-    LoadTextureImage("../../data/gold.jpg");
+    LoadTextureImage("../../data/earth.jpg", 1);
+    LoadTextureImage("../../data/earth.jpg", 2);
+    LoadTextureImage("../../data/FlashlightTexture.jpg", 3);
+    LoadTextureImage("../../data/sky.jpg", 4);
+    LoadTextureImage("../../data/gold.jpg", 5);
+    LoadTextureImage("../../data/wall.jpg", 6);
+    LoadTextureImage("../../data/grass.jpg", 7);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel flashlightmodel("../../data/flashlight.obj");
@@ -351,6 +365,7 @@ int main(int argc, char* argv[])
     // Variaveis para animação da vaca
     double time = glfwGetTime();
     double speed = 0.4;
+    double rotation_speed = 0.1f;
     bool move_up = false;
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
@@ -419,7 +434,7 @@ int main(int argc, char* argv[])
         // estão no sentido negativo! Veja slides 191-194 do documento
         // "Aula_09_Projecoes.pdf".
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -80.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -454,9 +469,10 @@ int main(int argc, char* argv[])
         #define FLASHLIGHT 0
         #define BUNNY  1
         #define PLANE  2
-        #define WALL   3
+        #define WALL_X 3
         #define COW    4
         #define WORLD  5
+        #define WALL_Z 6
 
         // Computa vetores para offsets da lanterna
         glm::vec4 flashlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
@@ -475,44 +491,54 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         // Variaveis abaixo sao passadas para o shader para determinar a posicao da fonte de luz.
         glUniform1i(object_id_uniform, FLASHLIGHT);
-        DrawVirtualObject("flashlight");
+        if (!game_over)
+            DrawVirtualObject("flashlight");
 
 
         // Desenhamos o modelo do plano
         model = Matrix_Translate(0.0f,-1.0f,0.0f) * Matrix_Scale(MAP_WIDTH_X, 1.0f, MAP_WIDTH_Z);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, PLANE);
-        DrawVirtualObject("plane");
+        if (!game_over)
+            DrawVirtualObject("plane");
 
         // Parede 1
         model = Matrix_Translate(MAP_WIDTH_X+1,-1.0f,0.0f) * Matrix_Scale(1.0f, WALL_HEIGHT, MAP_WIDTH_X+2);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, WALL);
-        DrawVirtualObject("cube");
+        glUniform1i(object_id_uniform, WALL_Z);
+        if (!game_over)
+            DrawVirtualObject("cube");
 
         // Parede 2
         model = Matrix_Translate(-(MAP_WIDTH_X+1),-1.0f,0.0f) * Matrix_Scale(1.0f, WALL_HEIGHT, MAP_WIDTH_X+2);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, WALL);
-        DrawVirtualObject("cube");
+        glUniform1i(object_id_uniform, WALL_Z);
+        if (!game_over)
+            DrawVirtualObject("cube");
 
         // Parede 3
         model = Matrix_Translate(0.0f,-1.0f,(MAP_WIDTH_X+1)) * Matrix_Scale(MAP_WIDTH_X, WALL_HEIGHT, 1.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, WALL);
-        DrawVirtualObject("cube");
+        glUniform1i(object_id_uniform, WALL_X);
+        if (!game_over)
+            DrawVirtualObject("cube");
 
         // Parede 3
         model = Matrix_Translate(0.0f,-1.0f,-(MAP_WIDTH_X+1)) * Matrix_Scale(MAP_WIDTH_X, WALL_HEIGHT, 1.0f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, WALL);
-        DrawVirtualObject("cube");
+        glUniform1i(object_id_uniform, WALL_X);
+        if (!game_over)
+            DrawVirtualObject("cube");
 
         // Desenhadmos a vaca em uma posição aleatória
         // A vaca só será gerada novamente quando for encontrada
         // O y vai sendo alterado pra gerar a animação
         double new_time = glfwGetTime();
         double time_step = new_time - time;
+        elapsed_time = new_time - beginning_time;
+        //printf("E: %g | H: %g\n", elapsed_time, HUNT_DURATION);
+        if (elapsed_time >= HUNT_DURATION)
+            game_over = true;
         time = new_time;
         float cow_y_step = cow_y + speed*time_step;
         if (cow_y_step >= -0.5f)
@@ -525,6 +551,7 @@ int main(int argc, char* argv[])
         else
             cow_y = cow_y - speed*time_step;
         if (spawn_cow) {
+            beginning_time = glfwGetTime();
             cow_x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
             cow_z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
             spawn_cow = false;
@@ -532,11 +559,14 @@ int main(int argc, char* argv[])
         model = Matrix_Translate(cow_x,cow_y,cow_z) * Matrix_Scale(0.25f, 0.25f, 0.25f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, COW);
-        DrawVirtualObject("cow");
+        if (!game_over)
+            DrawVirtualObject("cow");
 
         // Desenhamos o "mundo" para poder aplicar textura no ceu
         float world_size = MAP_WIDTH_X + MAP_WIDTH_Z;
-        model = Matrix_Translate(0.0f,0.0f,0.0f) * Matrix_Scale(world_size, world_size, world_size);
+        model = Matrix_Translate(0.0f,0.0f,0.0f)
+                * Matrix_Scale(world_size, world_size, world_size)
+                * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.04f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, WORLD);
         DrawVirtualObject("sphere");
@@ -559,15 +589,21 @@ int main(int argc, char* argv[])
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
         // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
+        //TextRendering_ShowEulerAngles(window);
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
+        //TextRendering_ShowProjection(window);
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
-        TextRendering_ShowFramesPerSecond(window);
-
+        if (game_over) {
+            TextRendering_ShowGameOver(window);
+            TextRendering_ShowPlayAgain(window);
+        } else {
+            TextRendering_ShowFramesPerSecond(window);
+            TextRendering_ShowPoints(window);
+            TextRendering_ShowTime(window);
+        }
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -599,7 +635,7 @@ int main(int argc, char* argv[])
 }
 
 // Função que carrega uma imagem para ser utilizada como textura
-void LoadTextureImage(const char* filename)
+void LoadTextureImage(const char* filename, int image_id)
 {
     printf("Carregando imagem \"%s\"... ", filename);
 
@@ -625,8 +661,13 @@ void LoadTextureImage(const char* filename)
     glGenSamplers(1, &sampler_id);
 
     // Veja slide 160 do documento "Aula_20_e_21_Mapeamento_de_Texturas.pdf"
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if (image_id == 7) {
+        glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    } else {
+        glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
 
     // Parâmetros de amostragem da textura. Falaremos sobre eles em uma próxima aula.
     glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -738,6 +779,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage2"), 2);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage3"), 3);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage4"), 4);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage5"), 5);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage6"), 6);
     glUseProgram(0);
 
     camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
@@ -1333,14 +1376,17 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
     float delta = 3.141592 / 16; // 22.5 graus, em radianos.
 
+    if (game_over && key == GLFW_KEY_ENTER && action == GLFW_PRESS)
+    {
+        spawn_cow = true;
+        game_over = false;
+        cow_counter = 0;
+        beginning_time = glfwGetTime();
+    }
+
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
     {
         g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    if (key == GLFW_KEY_K && action == GLFW_PRESS)
-    {
-        spawn_cow = true;
     }
 
     if (key == GLFW_KEY_Y && action == GLFW_PRESS)
@@ -1450,16 +1496,15 @@ void HandleKeyActions() {
        //printf("MEU X e Z: %g %g\n", g_CameraPosition.x, g_CameraPosition.z);
         if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
             cow_counter++;
-            printf("COUNTER: %i\n", cow_counter);
             spawn_cow = true;
         }
 
         float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
         float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
         //g_CameraPosition.y = g_CameraPosition.y - sin(g_CameraPhi);
@@ -1468,11 +1513,11 @@ void HandleKeyActions() {
     if (g_DownKeyPressed)
     {
         float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
         float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 
@@ -1483,11 +1528,11 @@ void HandleKeyActions() {
     {
 
         float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
-        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
         float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
-        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 
@@ -1496,11 +1541,11 @@ void HandleKeyActions() {
     if (g_RightKeyPressed)
     {
         float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
-        if (new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
         float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
-        if (new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 
@@ -1615,8 +1660,79 @@ void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
 }
 
+// Escrevemos na tela a pontuação
+void TextRendering_ShowPoints(GLFWwindow* window)
+{
+
+    // Variáveis estáticas (static) mantém seus valores entre chamadas
+    // subsequentes da função!
+    static char  buffer[30] = "You have: ??? points";
+    static int   numchars = 21;
+
+    numchars = snprintf(buffer, 30, "You have: %i points", cow_counter);
 
 
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight-0.05f, 1.0f);
+}
+
+// Escrevemos na tela o tempo
+void TextRendering_ShowTime(GLFWwindow* window)
+{
+
+    // Variáveis estáticas (static) mantém seus valores entre chamadas
+    // subsequentes da função!
+    static char  buffer[30] = "Remaining time: ???s";
+    static int   numchars = 21;
+
+    numchars = snprintf(buffer, 30, "Remaining time: %.0fs", HUNT_DURATION-elapsed_time);
+
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight-0.1f, 1.0f);
+
+}
+
+// Escrevemos na tela a mensagem de derrota
+void TextRendering_ShowGameOver(GLFWwindow* window)
+{
+
+    // Variáveis estáticas (static) mantém seus valores entre chamadas
+    // subsequentes da função!
+    static char  buffer[30] = "Game Over! Score: ???";
+    static int   numchars = 22;
+
+    numchars = snprintf(buffer, 30, "Game Over! Score: %i", cow_counter);
+
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, -0.25f, 0.0f, 2.5f);
+
+}
+
+void TextRendering_ShowPlayAgain(GLFWwindow* window)
+{
+
+    // Variáveis estáticas (static) mantém seus valores entre chamadas
+    // subsequentes da função!
+    static char  buffer[30] = "Press Enter to Play Again";
+    static int   numchars = 25;
+
+    numchars = snprintf(buffer, 30, "Press Enter to Play Again", cow_counter);
+
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, -0.265f, -0.1f, 2.0f);
+
+}
 
 
 

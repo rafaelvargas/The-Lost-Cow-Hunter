@@ -22,9 +22,10 @@ uniform mat4 projection;
 #define FLASHLIGHT 0
 #define BUNNY  1
 #define PLANE  2
-#define WALL   3
+#define WALL_X 3
 #define COW    4
 #define WORLD  5
+#define WALL_Z 6
 uniform int object_id;
 
 
@@ -38,6 +39,9 @@ uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
 uniform sampler2D TextureImage4;
+uniform sampler2D TextureImage5;
+uniform sampler2D TextureImage6;
+
 
 uniform vec4 camera_position;
 // Atributos uteis a lanterna
@@ -47,6 +51,11 @@ uniform vec4 spotlight_left_offset_vector;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec3 color;
+
+// Constantes
+#define M_PI   3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+
 
 void main()
 {
@@ -133,19 +142,43 @@ void main()
     }
     else if ( object_id == PLANE )
     {
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+
+        U = (position_model.x - minx) / (maxx - minx);
+        V = (position_model.z - minz) / (maxz - minz);
+
         // Propriedades espectrais do plano
-        Kd = vec3(0.2, 0.2, 0.2);
+        Kd = texture(TextureImage6, vec2(U,V)).rgb;
         Ks = vec3(0.3, 0.3, 0.3);
-        Ka = vec3(0.01, 0.01, 0.01);
+        Ka = Kd/8;
         q = 20.0;
     }
-    else if ( object_id == WALL )
+    else if ( object_id == WALL_X )
     {
+        U = position_model.x;
+        V = position_model.y;
+
         // Propriedades espectrais da parede
-        Kd = vec3(0.2, 0.2, 0.2);
+        Kd = texture(TextureImage5, vec2(U,V)).rgb;
         Ks = vec3(0.3, 0.3, 0.3);
-        Ka = vec3(0.01, 0.01, 0.01);
-        q = 20.0;
+        Ka = Kd/8;
+        q = 1.0;
+    }
+    else if ( object_id == WALL_Z )
+    {
+        U = position_model.z;
+        V = position_model.y;
+
+        // Propriedades espectrais da parede
+        Kd = texture(TextureImage5, vec2(U,V)).rgb;
+        Ks = vec3(0.3, 0.3, 0.3);
+        Ka = Kd/8;
+        q = 1.0;
     }
     else if ( object_id == COW )
     {
@@ -171,24 +204,20 @@ void main()
     }
     else if ( object_id == WORLD )
     {
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float ho = length(position_model);
+        vec4 p_linha = ho*((position_model - bbox_center)/length(position_model - bbox_center));
+        float theta = atan(p_linha.x, p_linha.z);
+        float fi = asin(p_linha.y/ho);
+
+        U = (theta + M_PI)/(2*M_PI);
+        V = (fi + M_PI_2)/M_PI;
+
         // Propriedades espectrais do mundo
-        float minx = bbox_min.x;
-        float maxx = bbox_max.x;
-
-        float miny = bbox_min.y;
-        float maxy = bbox_max.y;
-
-        float minz = bbox_min.z;
-        float maxz = bbox_max.z;
-
-
-        U = (position_model.x - minx) / (maxx - minx);
-        V = (position_model.y - miny) / (maxy - miny);
-
-        // Propriedades espectrais do coelho
         Kd = texture(TextureImage3, vec2(U,V)).rgb;
         Ks = vec3 (1.0, 1.0, 1.0);
-        Ka = Kd;
+        Ka = Kd/2;
         q = 5.0;
     }
     else // Objeto desconhecido = preto
