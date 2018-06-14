@@ -26,6 +26,7 @@ uniform mat4 projection;
 #define COW    4
 #define WORLD  5
 #define WALL_Z 6
+#define BIRD 7
 uniform int object_id;
 
 
@@ -41,6 +42,7 @@ uniform sampler2D TextureImage3;
 uniform sampler2D TextureImage4;
 uniform sampler2D TextureImage5;
 uniform sampler2D TextureImage6;
+uniform sampler2D TextureImage7;
 
 
 uniform vec4 camera_position;
@@ -155,10 +157,10 @@ void main()
         // Propriedades espectrais do plano
         Kd = texture(TextureImage6, vec2(U,V)).rgb;
         Ks = vec3(0.3, 0.3, 0.3);
-        Ka = Kd/8;
+        Ka = Kd/800;
         q = 20.0;
     }
-    else if ( object_id == WALL_X )
+    else if ( object_id == WALL_X || object_id == WALL_Z)
     {
         U = position_model.x;
         V = position_model.y;
@@ -166,18 +168,7 @@ void main()
         // Propriedades espectrais da parede
         Kd = texture(TextureImage5, vec2(U,V)).rgb;
         Ks = vec3(0.3, 0.3, 0.3);
-        Ka = Kd/8;
-        q = 1.0;
-    }
-    else if ( object_id == WALL_Z )
-    {
-        U = position_model.z;
-        V = position_model.y;
-
-        // Propriedades espectrais da parede
-        Kd = texture(TextureImage5, vec2(U,V)).rgb;
-        Ks = vec3(0.3, 0.3, 0.3);
-        Ka = Kd/8;
+        Ka = Kd/1000;
         q = 1.0;
     }
     else if ( object_id == COW )
@@ -199,7 +190,7 @@ void main()
         // Propriedades espectrais do coelho
         Kd = texture(TextureImage4, vec2(U,V)).rgb;
         Ks = vec3 (0.8, 0.8, 0.8);
-        Ka = Kd/5;
+        Ka = Kd/1000;
         q = 5.0;
     }
     else if ( object_id == WORLD )
@@ -215,9 +206,21 @@ void main()
         V = (fi + M_PI_2)/M_PI;
 
         // Propriedades espectrais do mundo
-        Kd = texture(TextureImage3, vec2(U,V)).rgb;
-        Ks = vec3 (1.0, 1.0, 1.0);
-        Ka = Kd/2;
+        //Kd = texture(TextureImage3, vec2(U,V)).rgb;
+        //Ks = vec3 (1.0, 1.0, 1.0);
+        Kd = vec3(0.0,0.0,0.0);
+        Ks = vec3(0.0,0.0,0.0);
+        Ka = texture(TextureImage3, vec2(U,V)).rgb/2;
+        q = 5.0;
+    }
+    else if( object_id == BIRD)
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+
+        Kd = texture(TextureImage7, vec2(U,V)).rgb;
+        Ks = vec3 (0.8, 0.8, 0.8);
+        Ka = Kd/5;
         q = 5.0;
     }
     else // Objeto desconhecido = preto

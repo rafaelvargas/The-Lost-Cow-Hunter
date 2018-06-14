@@ -201,6 +201,10 @@ GLint flashlight_down_offset_vector_uniform;
 #define MAP_WIDTH_Z 25.0f
 #define WALL_HEIGHT 1.0f
 #define HUNT_DURATION 30.0f
+#define BIRD_INITIAL_Y 7.0
+#define BIRD_SPEED 3.0
+#define BIRD_ATTACK_DISTANCE 3.0
+#define BIRD_DEATH_DISTANCE 0.5
 
 bool g_UpKeyPressed = false;
 bool g_DownKeyPressed = false;
@@ -307,6 +311,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/gold.jpg", 5);
     LoadTextureImage("../../data/wall.jpg", 6);
     LoadTextureImage("../../data/grass.jpg", 7);
+    LoadTextureImage("../../data/AlienBirdTexture.png", 8);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel flashlightmodel("../../data/flashlight.obj");
@@ -334,6 +339,10 @@ int main(int argc, char* argv[])
     ObjModel worldmodel("../../data/sphere.obj");
     ComputeNormals(&worldmodel);
     BuildTrianglesAndAddToVirtualScene(&worldmodel);
+
+    ObjModel birdmodel("../../data/AlienBird.obj");
+    ComputeNormals(&birdmodel);
+    BuildTrianglesAndAddToVirtualScene(&birdmodel);
 
     if ( argc > 1 )
     {
@@ -367,6 +376,14 @@ int main(int argc, char* argv[])
     double speed = 0.4;
     double rotation_speed = 0.1f;
     bool move_up = false;
+
+    // Variaveis para os passaros
+    glm::vec4 bird_position = glm::vec4(1.0,BIRD_INITIAL_Y,1.0,1.0);
+    glm::vec4 bird_movement_direction;
+    float bird_angle_x;
+    float bird_angle_y;
+    bool is_bird_alive = true;
+
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -473,6 +490,7 @@ int main(int argc, char* argv[])
         #define COW    4
         #define WORLD  5
         #define WALL_Z 6
+        #define BIRD 7
 
         // Computa vetores para offsets da lanterna
         glm::vec4 flashlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
@@ -560,20 +578,22 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, COW);
         if (!game_over)
-            DrawVirtualObject("cow");
+            DrawVirtualObject("cow");  
+        
 
         // Desenhamos o "mundo" para poder aplicar textura no ceu
         float world_size = MAP_WIDTH_X + MAP_WIDTH_Z;
         model = Matrix_Translate(0.0f,0.0f,0.0f)
                 * Matrix_Scale(world_size, world_size, world_size)
-                * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.04f);
+                * Matrix_Rotate_Y((float)glfwGetTime() * 0.04f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, WORLD);
         DrawVirtualObject("sphere");
-
+        
 
         // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f)
+        model = Matrix_Translate(bird_position.x, bird_position.y, bird_position.z)
+              * Matrix_Scale(0.25f, 0.25f, 0.25f)
               * Matrix_Rotate_Z(g_AngleZ)
               * Matrix_Rotate_Y(g_AngleY)
               * Matrix_Rotate_X(g_AngleX);
@@ -581,6 +601,49 @@ int main(int argc, char* argv[])
         glUniform1i(object_id_uniform, BUNNY);
         //DrawVirtualObject("bunny");
 
+        // Computa direcao do passaro em relacao ao jogador,
+        // distancia entre eles,
+        // e rotações necessarias.
+        float bird_distance = length(g_CameraPosition - bird_position);
+        if(bird_distance > BIRD_ATTACK_DISTANCE && is_bird_alive)
+        {
+            bird_movement_direction = normalize(g_CameraPosition - bird_position);
+            bird_angle_x = acos(dot(camera_up_vector, bird_movement_direction)) - 1.57;
+        }
+        else if(bird_position.y < 0.0) 
+        {
+            bird_position.x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
+            bird_position.z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+            bird_position.y = BIRD_INITIAL_Y;
+            is_bird_alive = true;
+        }
+        else
+        {
+            is_bird_alive = false;
+        }
+        //float bird_angle_y = acos(dot(glm::vec2(1.0f, 0.0f) , glm::vec2(bird_movement_direction.x, bird_movement_direction.z))) + 1.57;
+        //printf("Y: %f\n", dot(glm::vec2(1.0f, 0.0f) , glm::vec2(bird_movement_direction.x, bird_movement_direction.z)));
+
+        bird_position.x = bird_position.x + time_step * BIRD_SPEED *bird_movement_direction.x;
+        bird_position.y = bird_position.y + time_step * BIRD_SPEED *bird_movement_direction.y;
+        bird_position.z = bird_position.z + time_step * BIRD_SPEED *bird_movement_direction.z;
+
+        if(bird_distance <= BIRD_DEATH_DISTANCE )
+            game_over = true;
+
+
+        // Desenhamos o modelo do passaro
+        model = Matrix_Translate(bird_position.x,bird_position.y - 0.3f,bird_position.z)
+              * Matrix_Scale(0.1f, 0.1f, 0.1f)
+              * Matrix_Rotate_Y(g_CameraTheta)
+              * Matrix_Rotate_X(bird_angle_x);
+        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(object_id_uniform, BIRD);
+        if(!game_over)
+            DrawVirtualObject("bird");
+
+
+        // Dados passados ao shader fragment uteis para o posicionamento da luz da lanterna
         glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(camera_view_vector));
         glUniform4fv(flashlight_left_offset_vector_uniform, 1 , glm::value_ptr(flashlight_left_offset_vector));
         glUniform4fv(flashlight_down_offset_vector_uniform, 1 , glm::value_ptr(flashlight_down_offset_vector));
@@ -781,6 +844,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage6"), 6);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage7"), 7);
     glUseProgram(0);
 
     camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
