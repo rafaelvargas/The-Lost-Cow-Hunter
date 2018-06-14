@@ -195,7 +195,6 @@ GLint flashlight_left_offset_vector_uniform;
 GLint flashlight_down_offset_vector_uniform;
 
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
-#define PLAYER_SPEED 4.5f
 #define PLAYER_INITIAL_POS glm::vec4(0.0f,0.0f,2.5f,1.0f)
 #define MAP_WIDTH_X 25.0f
 #define MAP_WIDTH_Z 25.0f
@@ -205,6 +204,9 @@ GLint flashlight_down_offset_vector_uniform;
 #define BIRD_SPEED 3.0
 #define BIRD_ATTACK_DISTANCE 3.0
 #define BIRD_DEATH_DISTANCE 0.5
+#define MAX_STAMINA 10
+#define RUNNING_SPEED 8.0f
+#define WALKING_SPEED 3.0f
 
 bool g_UpKeyPressed = false;
 bool g_DownKeyPressed = false;
@@ -228,6 +230,15 @@ double elapsed_time;
 
 // Variavel para ver se o jogo acabou
 bool game_over = false;
+
+// Velocidade do jogador
+float player_speed = 4.5f;
+int stamina = 0;
+bool running = false;
+double start_walking_time = glfwGetTime();
+double start_running_time = glfwGetTime();
+double last_second = glfwGetTime();
+
 
 // =========================================================================
 // =========================================================================
@@ -554,6 +565,7 @@ int main(int argc, char* argv[])
         double new_time = glfwGetTime();
         double time_step = new_time - time;
         elapsed_time = new_time - beginning_time;
+
         //printf("E: %g | H: %g\n", elapsed_time, HUNT_DURATION);
         if (elapsed_time >= HUNT_DURATION)
             game_over = true;
@@ -642,11 +654,34 @@ int main(int argc, char* argv[])
         if(!game_over)
             DrawVirtualObject("bird");
 
-
         // Dados passados ao shader fragment uteis para o posicionamento da luz da lanterna
+        // Controla se o personagem esta correndo ou caminhando
         glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(camera_view_vector));
         glUniform4fv(flashlight_left_offset_vector_uniform, 1 , glm::value_ptr(flashlight_left_offset_vector));
         glUniform4fv(flashlight_down_offset_vector_uniform, 1 , glm::value_ptr(flashlight_down_offset_vector));
+
+
+        // Logica relacionada ao folego e velocidade do jogador
+        new_time = glfwGetTime();
+        int second_passed = 0;
+        if (new_time - last_second >= 1) {
+            second_passed = 1;
+            last_second = new_time;
+        }
+        if (!running) {
+            player_speed = WALKING_SPEED;
+            stamina += second_passed;
+            if (stamina > MAX_STAMINA) stamina = MAX_STAMINA;
+        } else {
+            player_speed = RUNNING_SPEED;
+            stamina -= second_passed;
+            if (stamina < 0) stamina = 0;
+         }
+        if (stamina == 0) {
+            running = false;
+            start_walking_time = glfwGetTime();
+        }
+
 
         // IMPRIME INFORMACOES NA TELA
 
@@ -1219,11 +1254,6 @@ GLuint CreateGpuProgram(GLuint vertex_shader_id, GLuint fragment_shader_id)
     return program_id;
 }
 
-
-
-
-
-
 // CALLBACK FUNCTIONS
 // Definição da função que será chamada sempre que a janela do sistema
 // operacional for redimensionada, por consequência alterando o tamanho do
@@ -1445,6 +1475,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         spawn_cow = true;
         game_over = false;
         cow_counter = 0;
+        stamina = 0;
         beginning_time = glfwGetTime();
     }
 
@@ -1465,6 +1496,13 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
+        if (running) {
+            running = false;
+            start_walking_time = glfwGetTime();
+        } else if (!running && stamina > 0) {
+            running = true;
+            start_running_time = glfwGetTime();
+        }
         g_AngleX = 0.0f;
         g_AngleY = 0.0f;
         g_AngleZ = 0.0f;
@@ -1506,6 +1544,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se usuario aperta teclas WASD (movimento)
     if (key == GLFW_KEY_W && action == GLFW_PRESS)
     {
+        if (stamina > 0)
+            player_speed = 8.0f;
         g_UpKeyPressed = true;
     }
     if (key == GLFW_KEY_W && action == GLFW_RELEASE)
@@ -1556,18 +1596,16 @@ void HandleKeyActions() {
 
     if (g_UpKeyPressed)
     {
-       //printf("COW X e Z: %g %g\n", cow_x, cow_z);
-       //printf("MEU X e Z: %g %g\n", g_CameraPosition.x, g_CameraPosition.z);
         if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
             cow_counter++;
             spawn_cow = true;
         }
 
-        float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        float new_cameraposition_x = g_CameraPosition.x - player_speed * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
         if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
+        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
         if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
@@ -1576,11 +1614,11 @@ void HandleKeyActions() {
 
     if (g_DownKeyPressed)
     {
-        float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
+        float new_cameraposition_x = g_CameraPosition.x + player_speed * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
         if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
+        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
         if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
@@ -1591,11 +1629,11 @@ void HandleKeyActions() {
     if (g_LeftKeyPressed)
     {
 
-        float new_cameraposition_x = g_CameraPosition.x - PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
+        float new_cameraposition_x = g_CameraPosition.x - player_speed * time_spent_on_loop * cos(g_CameraTheta);
         if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z + PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * sin(g_CameraTheta);
         if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
@@ -1604,11 +1642,11 @@ void HandleKeyActions() {
 
     if (g_RightKeyPressed)
     {
-        float new_cameraposition_x = g_CameraPosition.x + PLAYER_SPEED * time_spent_on_loop * cos(g_CameraTheta);
+        float new_cameraposition_x = g_CameraPosition.x + player_speed * time_spent_on_loop * cos(g_CameraTheta);
         if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z - PLAYER_SPEED * time_spent_on_loop * sin(g_CameraTheta);
+        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * sin(g_CameraTheta);
         if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
@@ -1692,31 +1730,14 @@ void TextRendering_ShowProjection(GLFWwindow* window)
 // second).
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
 {
-    if ( !g_ShowInfoText )
-        return;
-
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
-    static float old_seconds = (float)glfwGetTime();
-    static int   ellapsed_frames = 0;
-    static char  buffer[20] = "?? fps";
-    static int   numchars = 7;
-
-    ellapsed_frames += 1;
+    static char  buffer[20] = "Stamina: 0";
+    static int   numchars = 11;
 
     // Recuperamos o número de segundos que passou desde a execução do programa
-    float seconds = (float)glfwGetTime();
+    numchars = snprintf(buffer, 20, "Stamina: %i", stamina);
 
-    // Número de segundos desde o último cálculo do fps
-    float ellapsed_seconds = seconds - old_seconds;
-
-    if ( ellapsed_seconds > 1.0f )
-    {
-        numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
-
-        old_seconds = seconds;
-        ellapsed_frames = 0;
-    }
 
     float lineheight = TextRendering_LineHeight(window);
     float charwidth = TextRendering_CharWidth(window);
@@ -1730,7 +1751,7 @@ void TextRendering_ShowPoints(GLFWwindow* window)
 
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
-    static char  buffer[30] = "You have: ??? points";
+    static char  buffer[30] = "You have: 0 point(s)";
     static int   numchars = 21;
 
     numchars = snprintf(buffer, 30, "You have: %i points", cow_counter);
@@ -1748,7 +1769,7 @@ void TextRendering_ShowTime(GLFWwindow* window)
 
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
-    static char  buffer[30] = "Remaining time: ???s";
+    static char  buffer[30] = "Remaining time: 0s";
     static int   numchars = 21;
 
     numchars = snprintf(buffer, 30, "Remaining time: %.0fs", HUNT_DURATION-elapsed_time);
@@ -1767,7 +1788,7 @@ void TextRendering_ShowGameOver(GLFWwindow* window)
 
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
-    static char  buffer[30] = "Game Over! Score: ???";
+    static char  buffer[30] = "Game Over! Score: 0";
     static int   numchars = 22;
 
     numchars = snprintf(buffer, 30, "Game Over! Score: %i", cow_counter);
