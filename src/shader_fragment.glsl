@@ -69,7 +69,7 @@ void main()
 
     // Spotlight
     vec4 spotlight_position = camera_position
-                            + 0.45*camera_view_vector
+                            + 0.55*camera_view_vector
                             + spotlight_down_offset_vector
                             + spotlight_left_offset_vector;
     vec4 spotlight_orientation = camera_view_vector;
@@ -116,7 +116,7 @@ void main()
         // Propriedades espectrais da lanterna
         Kd = texture(TextureImage2, vec2(U,V)).rgb;
         Ks = vec3(0.0,0.0,0.0);
-        Ka = Kd/2;
+        Ka = Kd;
         q = 1.0;
 
     }
@@ -139,7 +139,7 @@ void main()
         // Propriedades espectrais do coelho
         Kd = texture(TextureImage1, vec2(U,V)).rgb;
         Ks = vec3 (0.8, 0.8, 0.8);
-        Ka = Kd/5;
+        Ka = Kd/10;
         q = 5.0;
     }
     else if ( object_id == PLANE )
@@ -219,9 +219,9 @@ void main()
         V = texcoords.y;
 
         Kd = texture(TextureImage7, vec2(U,V)).rgb;
-        Ks = vec3 (0.8, 0.8, 0.8);
+        Ks = vec3 (0.9, 0.9, 0.9);
         Ka = Kd/5;
-        q = 5.0;
+        q = 10.0;
     }
     else // Objeto desconhecido = preto
     {

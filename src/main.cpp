@@ -201,7 +201,7 @@ GLint flashlight_down_offset_vector_uniform;
 #define WALL_HEIGHT 1.0f
 #define HUNT_DURATION 30.0f
 #define BIRD_INITIAL_Y 7.0
-#define BIRD_SPEED 3.0
+#define BIRD_SPEED 4.0
 #define BIRD_ATTACK_DISTANCE 3.0
 #define BIRD_DEATH_DISTANCE 0.5
 #define MAX_STAMINA 10
@@ -232,7 +232,7 @@ double elapsed_time;
 bool game_over = false;
 
 // Velocidade do jogador
-float player_speed = 4.5f;
+float player_speed = WALKING_SPEED;
 int stamina = 0;
 bool running = false;
 double start_walking_time = glfwGetTime();
@@ -266,10 +266,13 @@ int main(int argc, char* argv[])
     // funções modernas de OpenGL.
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+    // Usado para verificar resolucao da tela
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "The Lost Cow Hunter", NULL, NULL);
+    window = glfwCreateWindow(mode->width, mode->height, "The Lost Cow Hunter", glfwGetPrimaryMonitor(), NULL);
     if (!window)
     {
         glfwTerminate();
@@ -321,7 +324,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/sky.jpg", 4);
     LoadTextureImage("../../data/gold.jpg", 5);
     LoadTextureImage("../../data/wall.jpg", 6);
-    LoadTextureImage("../../data/grass.jpg", 7);
+    LoadTextureImage("../../data/grass.png", 7);
     LoadTextureImage("../../data/AlienBirdTexture.png", 8);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
@@ -390,6 +393,9 @@ int main(int argc, char* argv[])
 
     // Variaveis para os passaros
     glm::vec4 bird_position = glm::vec4(1.0,BIRD_INITIAL_Y,1.0,1.0);
+    bird_position.x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
+    bird_position.z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+    bird_position.y = BIRD_INITIAL_Y;
     glm::vec4 bird_movement_direction;
     float bird_angle_x;
     float bird_angle_y;
@@ -604,14 +610,15 @@ int main(int argc, char* argv[])
         
 
         // Desenhamos o modelo do coelho
-        model = Matrix_Translate(bird_position.x, bird_position.y, bird_position.z)
-              * Matrix_Scale(0.25f, 0.25f, 0.25f)
+        model = Matrix_Translate(3.0f, -0.4f, 2.5f)
+              * Matrix_Scale(0.5f, 0.5f, 0.5f)
               * Matrix_Rotate_Z(g_AngleZ)
               * Matrix_Rotate_Y(g_AngleY)
               * Matrix_Rotate_X(g_AngleX);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, BUNNY);
-        //DrawVirtualObject("bunny");
+        if (!game_over)
+            DrawVirtualObject("bunny");
 
         // Computa direcao do passaro em relacao ao jogador,
         // distancia entre eles,
@@ -759,7 +766,7 @@ void LoadTextureImage(const char* filename, int image_id)
     glGenSamplers(1, &sampler_id);
 
     // Veja slide 160 do documento "Aula_20_e_21_Mapeamento_de_Texturas.pdf"
-    if (image_id == 7) {
+    if (image_id == 7 || image_id == 6) {
         glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_REPEAT);
     } else {
@@ -1503,9 +1510,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             running = true;
             start_running_time = glfwGetTime();
         }
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
     }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
