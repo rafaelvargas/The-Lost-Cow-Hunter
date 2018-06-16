@@ -23,7 +23,7 @@ uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
 #define FLASHLIGHT  0
-#define ROCK        1
+#define BUNNY        1
 #define PLANE       2
 #define WALL_X      3
 #define COW         4
@@ -212,7 +212,7 @@ void main()
         Ka = Kd/1000;
         q = 10.0;
     }
-    else if( object_id == ROCK)
+    else if( object_id == BUNNY)
     {
         useGouradShading = true;
 
@@ -277,7 +277,6 @@ void main()
             phong_specular_term  = phong_specular_term_gourad_shading;
         }
         color =  attenuation * intensity *(lambert_diffuse_term + phong_specular_term) + ambient_term;
-        //color = Kd * max(0, dot(l, n));
     } else {
         color = ambient_term;
     }
