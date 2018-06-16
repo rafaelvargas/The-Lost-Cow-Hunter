@@ -110,8 +110,11 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-// Função para checar colisão com a vaca
+void spawnCow();
 bool checkCowBBox(float my_x, float my_z);
+
+bool checkRocksBboxes(float my_x, float my_z);
+void spawnRocks();
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -194,24 +197,24 @@ bool g_isFlashlightTurningLeft = false;
 #define FLASHLIGHT_MOVEMENT_SPEED 0.8f
 
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
-#define PLAYER_INITIAL_POS glm::vec4(0.0f,0.0f,2.5f,1.0f)
-#define MAP_WIDTH_X 25.0f
-#define MAP_WIDTH_Z 25.0f
-#define WALL_HEIGHT 1.0f
-#define HUNT_DURATION 30.0f
-#define BIRD_INITIAL_Y 7.0
-#define BIRD_SPEED 4.0
-#define BIRD_ATTACK_DISTANCE 3.0
-#define BIRD_DEATH_DISTANCE 0.5
-#define MAX_STAMINA 10
-#define RUNNING_SPEED 8.0f
-#define WALKING_SPEED 3.0f
+#define PLAYER_INITIAL_POS      glm::vec4(0.0f,0.0f,2.5f,1.0f)
+#define MAP_WIDTH_X             25.0f
+#define MAP_WIDTH_Z             25.0f
+#define WALL_HEIGHT             1.0f
+#define HUNT_DURATION           30.0f
+#define BIRD_INITIAL_Y          7.0
+#define BIRD_SPEED              4.0
+#define BIRD_ATTACK_DISTANCE    3.0
+#define BIRD_DEATH_DISTANCE     0.5
+#define MAX_STAMINA             10
+#define RUNNING_SPEED           8.0f
+#define WALKING_SPEED           3.0f
+#define NUM_OF_ROCKS            50
 
 bool g_UpKeyPressed = false;
 bool g_DownKeyPressed = false;
 bool g_LeftKeyPressed = false;
 bool g_RightKeyPressed = false;
-
 // Funcao usada processar teclas
 void HandleKeyActions();
 float time_spent_on_loop;
@@ -238,6 +241,10 @@ double start_walking_time = glfwGetTime();
 double start_running_time = glfwGetTime();
 double last_second = glfwGetTime();
 
+//Variáveis da pedra
+float rock_size = 0.5f;
+float rock_x[NUM_OF_ROCKS];
+float rock_z[NUM_OF_ROCKS];
 
 // =========================================================================
 // =========================================================================
@@ -253,6 +260,8 @@ int main(int argc, char* argv[])
         fprintf(stderr, "ERROR: glfwInit() failed.\n");
         std::exit(EXIT_FAILURE);
     }
+
+    printf("AAA %i AAA\n", NUM_OF_ROCKS);
 
     // Definimos o callback para impressão de erros da GLFW no terminal
     glfwSetErrorCallback(ErrorCallback);
@@ -325,6 +334,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/wall.jpg", 6);
     LoadTextureImage("../../data/grass.png", 7);
     LoadTextureImage("../../data/AlienBirdTexture.png", 8);
+    LoadTextureImage("../../data/rock.jpg", 9);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel flashlightmodel("../../data/flashlight.obj");
@@ -350,6 +360,10 @@ int main(int argc, char* argv[])
     ObjModel birdmodel("../../data/AlienBird.obj");
     ComputeNormals(&birdmodel);
     BuildTrianglesAndAddToVirtualScene(&birdmodel);
+
+    ObjModel rockmodel("../../data/bunny.obj");
+    ComputeNormals(&rockmodel);
+    BuildTrianglesAndAddToVirtualScene(&rockmodel);
 
     if ( argc > 1 )
     {
@@ -396,6 +410,8 @@ int main(int argc, char* argv[])
     // Variaveis para a movimentação da lanterna
     float flashlight_movement_angle = 0.0f;
     float flashlight_angle_before_movement = flashlight_movement_angle;
+
+    spawnRocks();
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -495,13 +511,14 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        #define FLASHLIGHT 0
-        #define PLANE  2
-        #define WALL_X 3
-        #define COW    4
-        #define WORLD  5
-        #define WALL_Z 6
-        #define BIRD 7
+        #define FLASHLIGHT  0
+        #define ROCK        1
+        #define PLANE       2
+        #define WALL_X      3
+        #define COW         4
+        #define WORLD       5
+        #define WALL_Z      6
+        #define BIRD        7
 
         // Computa vetores para offsets da lanterna
         glm::vec4 flashlight_left_offset_vector = crossproduct(camera_up_vector, camera_view_vector);
@@ -603,16 +620,15 @@ int main(int argc, char* argv[])
             cow_y = cow_y - speed*time_step;
         if (spawn_cow) {
             beginning_time = glfwGetTime();
-            cow_x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
-            cow_z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+            spawnCow();
             spawn_cow = false;
         }
         model = Matrix_Translate(cow_x,cow_y,cow_z) * Matrix_Scale(0.25f, 0.25f, 0.25f);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, COW);
         if (!game_over)
-            DrawVirtualObject("cow");  
-        
+            DrawVirtualObject("cow");
+
 
         // Desenhamos o "mundo" para poder aplicar textura no ceu
         float world_size = MAP_WIDTH_X + MAP_WIDTH_Z;
@@ -622,7 +638,7 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(object_id_uniform, WORLD);
         DrawVirtualObject("sphere");
-        
+
 
         // Computa direcao do passaro em relacao ao jogador,
         // distancia entre eles,
@@ -633,7 +649,7 @@ int main(int argc, char* argv[])
             bird_movement_direction = normalize(g_CameraPosition - bird_position);
             bird_angle_x = acos(dot(camera_up_vector, bird_movement_direction)) - 1.57;
         }
-        else if(bird_position.y < 0.0) 
+        else if(bird_position.y < 0.0)
         {
             bird_position.x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
             bird_position.z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
@@ -664,6 +680,17 @@ int main(int argc, char* argv[])
         glUniform1i(object_id_uniform, BIRD);
         if(!game_over)
             DrawVirtualObject("bird");
+
+        // Pedras
+        int i;
+        for(i = 0; i < NUM_OF_ROCKS; i++) {
+            model = Matrix_Translate(rock_x[i], -1.0f + rock_size, rock_z[i])
+                  * Matrix_Scale(rock_size, rock_size, rock_size);
+            glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(object_id_uniform, ROCK);
+            if(!game_over)
+                DrawVirtualObject("bunny");
+        }
 
         // Dados passados ao shader fragment uteis para o posicionamento da luz da lanterna
         // Controla se o personagem esta correndo ou caminhando
@@ -891,6 +918,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(program_id, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage6"), 6);
     glUniform1i(glGetUniformLocation(program_id, "TextureImage7"), 7);
+    glUniform1i(glGetUniformLocation(program_id, "TextureImage8"), 8);
     glUseProgram(0);
 
     camera_view_vector_uniform           = glGetUniformLocation(program_id, "camera_view_vector");
@@ -1579,6 +1607,62 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     }
 }
 
+void spawnRocks() {
+    int i;
+
+    for(i = 0; i < NUM_OF_ROCKS; i++) {
+        int j;
+        float x;
+        float z;
+        bool position_ok = false;
+        while(!position_ok) {
+            x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
+            z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+            if (i == 0)
+                position_ok = true;
+            for(j = 0; j < i; j++) {
+                if(!(x > rock_x[j] - rock_size && x < rock_x[j] + rock_size))
+                    if (!(z > rock_z[j] - rock_size && z < rock_z[j] + rock_size))
+                        position_ok = true;
+                    else
+                        position_ok = false;
+                else
+                    position_ok = false;
+            }
+            if(PLAYER_INITIAL_POS.x >= x - 5*rock_size && PLAYER_INITIAL_POS.x <= x + 5*rock_size)
+                if(PLAYER_INITIAL_POS.z >= z - 5*rock_size && PLAYER_INITIAL_POS.z <= z + 5*rock_size)
+                    position_ok = false;
+        }
+        printf("X: %g Z %g \n", x, z);
+        rock_x[i] = x;
+        rock_z[i] = z;
+    }
+}
+
+void spawnCow() {
+    int j;
+    float x;
+    float z;
+    bool position_ok = false;
+    while (!position_ok) {
+        x = rand() % (int) (2*MAP_WIDTH_X-1) - round(MAP_WIDTH_X)+1;
+        z = rand() % (int) (2*MAP_WIDTH_Z-1) - round(MAP_WIDTH_Z)+1;
+        for(j = 0; j < NUM_OF_ROCKS; j++) {
+            if(!(x > rock_x[j] - rock_size && x < rock_x[j] + rock_size)) {
+                if (!(z > rock_z[j] - rock_size && z < rock_z[j] + rock_size)) {
+                    position_ok = true;
+                } else {
+                    position_ok = false;
+                }
+            } else {
+                position_ok = false;
+            }
+        }
+    }
+    cow_x = x;
+    cow_z = z;
+}
+
 bool checkCowBBox(float my_x, float my_z) {
     float cow_bbox_minx = cow_x - 0.25;
     float cow_bbox_maxx = cow_x + 0.25;
@@ -1587,6 +1671,20 @@ bool checkCowBBox(float my_x, float my_z) {
     if (my_x >= cow_bbox_minx && my_x <= cow_bbox_maxx)
         if (my_z >= cow_bbox_minz && my_z <= cow_bbox_maxz)
             return true;
+    return false;
+}
+
+bool checkRocksBboxes(float my_x, float my_z) {
+    int i;
+    for (i = 0; i < NUM_OF_ROCKS; i++) {
+        float rock_bbox_minx = rock_x[i] - rock_size;
+        float rock_bbox_maxx = rock_x[i] + rock_size;
+        float rock_bbox_minz = rock_z[i] - rock_size;
+        float rock_bbox_maxz = rock_z[i] + rock_size;
+        if (my_x >= rock_bbox_minx && my_x <= rock_bbox_maxx)
+            if (my_z >= rock_bbox_minz && my_z <= rock_bbox_maxz)
+                return true;
+    }
     return false;
 }
 
@@ -1600,11 +1698,14 @@ void HandleKeyActions() {
         }
 
         float new_cameraposition_x = g_CameraPosition.x - player_speed * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
+
+        bool rock_colision = checkRocksBboxes(new_cameraposition_x, new_cameraposition_z);
+
+        if (!game_over && !rock_colision && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && !rock_colision && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
         //g_CameraPosition.y = g_CameraPosition.y - sin(g_CameraPhi);
@@ -1612,12 +1713,19 @@ void HandleKeyActions() {
 
     if (g_DownKeyPressed)
     {
+        if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
+            cow_counter++;
+            spawn_cow = true;
+        }
         float new_cameraposition_x = g_CameraPosition.x + player_speed * time_spent_on_loop * cos(g_CameraPhi)*sin(g_CameraTheta);
-        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
+
+        bool rock_colision = checkRocksBboxes(new_cameraposition_x, new_cameraposition_z);
+
+        if (!game_over && !rock_colision && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * cos(g_CameraPhi)*cos(g_CameraTheta);
-        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && !rock_colision && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 
@@ -1626,13 +1734,20 @@ void HandleKeyActions() {
 
     if (g_LeftKeyPressed)
     {
+        if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
+            cow_counter++;
+            spawn_cow = true;
+        }
 
         float new_cameraposition_x = g_CameraPosition.x - player_speed * time_spent_on_loop * cos(g_CameraTheta);
-        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * sin(g_CameraTheta);
+
+        bool rock_colision = checkRocksBboxes(new_cameraposition_x, new_cameraposition_z);
+
+        if (!game_over && !rock_colision && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z + player_speed * time_spent_on_loop * sin(g_CameraTheta);
-        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && !rock_colision && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 
@@ -1640,12 +1755,20 @@ void HandleKeyActions() {
 
     if (g_RightKeyPressed)
     {
+        if (checkCowBBox(g_CameraPosition.x, g_CameraPosition.z)) {
+            cow_counter++;
+            spawn_cow = true;
+        }
+
         float new_cameraposition_x = g_CameraPosition.x + player_speed * time_spent_on_loop * cos(g_CameraTheta);
-        if (!game_over && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
+        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * sin(g_CameraTheta);
+
+        bool rock_colision = checkRocksBboxes(new_cameraposition_x, new_cameraposition_z);
+
+        if (!game_over && !rock_colision && new_cameraposition_x > -MAP_WIDTH_X+0.5 && new_cameraposition_x < MAP_WIDTH_X-0.5) {
             g_CameraPosition.x = new_cameraposition_x;
         }
-        float new_cameraposition_z = g_CameraPosition.z - player_speed * time_spent_on_loop * sin(g_CameraTheta);
-        if (!game_over && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
+        if (!game_over && !rock_colision && new_cameraposition_z > -MAP_WIDTH_Z+0.5 && new_cameraposition_z < MAP_WIDTH_Z-0.5) {
             g_CameraPosition.z = new_cameraposition_z;
         }
 

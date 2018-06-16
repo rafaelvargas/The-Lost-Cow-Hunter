@@ -13,20 +13,23 @@ in vec4 position_model;
 // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
 in vec2 texcoords;
 
+in float lambert_vertex;
+in float phong_vertex;
+
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define FLASHLIGHT 0
-#define BUNNY  1
-#define PLANE  2
-#define WALL_X 3
-#define COW    4
-#define WORLD  5
-#define WALL_Z 6
-#define BIRD 7
+#define FLASHLIGHT  0
+#define ROCK        1
+#define PLANE       2
+#define WALL_X      3
+#define COW         4
+#define WORLD       5
+#define WALL_Z      6
+#define BIRD        7
 uniform int object_id;
 
 
@@ -43,6 +46,7 @@ uniform sampler2D TextureImage4;
 uniform sampler2D TextureImage5;
 uniform sampler2D TextureImage6;
 uniform sampler2D TextureImage7;
+uniform sampler2D TextureImage8;
 
 
 uniform vec4 camera_position;
@@ -98,15 +102,19 @@ void main()
     vec4 r = -l + 2*n*dot(n, l);
 
     // Parâmetros que definem as propriedades espectrais da superfície
-    vec3 Kd; // Refletância difusa
-    vec3 Ks; // Refletância especular
-    vec3 Ka; // Refletância ambiente
-    float q; // Expoente especular para o modelo de iluminação de Phong
+    vec3 Kd;  // Refletância difusa
+    vec3 Ks;  // Refletância especular
+    vec3 Ka;  // Refletância ambiente
     vec3 Kd0; // Refletância difusa
+    float q;  // Expoente especular para o modelo de iluminação de Phong
+    float q_; // Expoente especular para o modelo de iluminação de Blinn Phong
 
     // Coordenadas de textura U e V
     float U = 0.0;
     float V = 0.0;
+
+    bool useBlinnPhong = false;
+    bool useGouradShading = false;
 
     if ( object_id == FLASHLIGHT )
     {
@@ -151,6 +159,8 @@ void main()
     }
     else if ( object_id == COW )
     {
+        useBlinnPhong = true;
+
         // Propriedades espectrais da vaca
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
@@ -169,7 +179,8 @@ void main()
         Kd = texture(TextureImage4, vec2(U,V)).rgb;
         Ks = vec3 (0.8, 0.8, 0.8);
         Ka = Kd/1000;
-        q = 5.0;
+        q  = 5.0;
+        q_ = 15.0;
     }
     else if ( object_id == WORLD )
     {
@@ -198,7 +209,19 @@ void main()
 
         Kd = texture(TextureImage7, vec2(U,V)).rgb;
         Ks = vec3 (0.9, 0.9, 0.9);
-        Ka = Kd/5;
+        Ka = Kd/1000;
+        q = 10.0;
+    }
+    else if( object_id == ROCK)
+    {
+        useGouradShading = true;
+
+        U = texcoords.x;
+        V = texcoords.y;
+
+        Kd = texture(TextureImage8, vec2(U,V)).rgb;
+        Ks = vec3 (0.9, 0.9, 0.9);
+        Ka = Kd/1000;
         q = 10.0;
     }
     else // Objeto desconhecido = preto
@@ -219,14 +242,17 @@ void main()
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term = Kd*I*max(0, dot(l, n)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_gourad_shading = Kd*I*lambert_vertex;
 
     // Termo ambiente
     vec3 ambient_term = Ka*Ia; // PREENCHA AQUI o termo ambiente
 
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term  = Ks*I*pow(max(0, dot(r, v)), q); // PREENCH AQUI o termo especular de Phong
+    vec3 phong_specular_term_gourad_shading = Ks*I*pow(phong_vertex, q);
 
-
+    vec4 h = (v + l)/length(v + l);
+    vec3 blinn_phong_specular_term = Ks*I*pow(max(0, dot(n, h)), q_);
 
     // Angulo atual do raio de luz da lanterna em relacao a um vetor central
     float theta = dot(normalize(p-spotlight_position), normalize(spotlight_orientation));
@@ -244,6 +270,12 @@ void main()
 
     // Spotlight test
     if(theta > cos(spotlight_outer_angle)){
+        if (useBlinnPhong)
+            phong_specular_term = blinn_phong_specular_term;
+        if (useGouradShading) {
+            lambert_diffuse_term = lambert_diffuse_term_gourad_shading;
+            phong_specular_term  = phong_specular_term_gourad_shading;
+        }
         color =  attenuation * intensity *(lambert_diffuse_term + phong_specular_term) + ambient_term;
         //color = Kd * max(0, dot(l, n));
     } else {

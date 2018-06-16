@@ -11,6 +11,11 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+// Atributos uteis a lanterna
+uniform vec4 camera_view_vector;
+uniform vec4 spotlight_down_offset_vector;
+uniform vec4 spotlight_left_offset_vector;
+
 // Atributos de v�rtice que ser�o gerados como sa�da ("out") pelo Vertex Shader.
 // ** Estes ser�o interpolados pelo rasterizador! ** gerando, assim, valores
 // para cada fragmento, os quais ser�o recebidos como entrada pelo Fragment
@@ -19,6 +24,9 @@ out vec4 position_world;
 out vec4 position_model;
 out vec4 normal;
 out vec2 texcoords;
+
+out float lambert_vertex;
+out float phong_vertex;
 
 void main()
 {
@@ -57,6 +65,26 @@ void main()
     // Veja slide 94 do documento "Aula_07_Transformacoes_Geometricas_3D.pdf".
     normal = inverse(transpose(model)) * normal_coefficients;
     normal.w = 0.0;
+
+        // Spotlight
+    vec4 origin = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 camera_position = inverse(view) * origin;
+    vec4 spotlight_position = camera_position
+                             + 0.55*camera_view_vector
+                             + spotlight_down_offset_vector
+                             + spotlight_left_offset_vector;
+    vec4 spotlight_orientation = camera_view_vector;
+
+    // Gourad Shading
+
+    vec4 p = position_world;
+    vec4 n = normalize(normal);
+    vec4 l = normalize((spotlight_position - p) - spotlight_orientation);
+    vec4 v = normalize(camera_position - p);
+    vec4 r = -l + 2*n*dot(n, l);
+
+    lambert_vertex = max(0, dot(l, n));
+    phong_vertex   = max(0, dot(r, v));
 
     // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
     texcoords = texture_coefficients;
