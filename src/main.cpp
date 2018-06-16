@@ -95,9 +95,6 @@ void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M,
 
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
-void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
-void TextRendering_ShowEulerAngles(GLFWwindow* window);
-void TextRendering_ShowProjection(GLFWwindow* window);
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
 void TextRendering_ShowPoints(GLFWwindow* window);
 void TextRendering_ShowTime(GLFWwindow* window);
@@ -140,11 +137,6 @@ std::map<std::string, SceneObject> g_VirtualScene;
 
 // Razão de proporção da janela (largura/altura). Veja função FramebufferSizeCallback().
 float g_ScreenRatio = 1.0f;
-
-// Ângulos de Euler que controlam a rotação de um dos cubos da cena virtual
-float g_AngleX = 0.0f;
-float g_AngleY = 0.0f;
-float g_AngleZ = 0.0f;
 
 // "g_LeftMouseButtonPressed = true" se o usuário está com o botão esquerdo do mouse
 // pressionado no momento atual. Veja função MouseButtonCallback().
@@ -193,6 +185,12 @@ GLint camera_position_uniform;
 GLint camera_view_vector_uniform;
 GLint flashlight_left_offset_vector_uniform;
 GLint flashlight_down_offset_vector_uniform;
+
+// Variaveis globais uteis a lanterna
+bool g_isFlashlightTurningRight = false;
+bool g_isFlashlightTurningLeft = false;
+#define FLASHLIGHT_MOVEMENT_STEP 0.261799f //15 graus
+#define FLASHLIGHT_MOVEMENT_SPEED 0.8f
 
 // Valores de tempo e velocidade para controle adequado da movimentacao do jogador
 #define PLAYER_INITIAL_POS glm::vec4(0.0f,0.0f,2.5f,1.0f)
@@ -332,12 +330,6 @@ int main(int argc, char* argv[])
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
-    //PrintObjModelInfo(&flashlightmodel);
-
-    ObjModel bunnymodel("../../data/bunny.obj");
-    ComputeNormals(&bunnymodel);
-    BuildTrianglesAndAddToVirtualScene(&bunnymodel);
-
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
@@ -376,7 +368,6 @@ int main(int argc, char* argv[])
     //glFrontFace(GL_CCW);
 
     // Variáveis auxiliares utilizadas para chamada à função
-    // TextRendering_ShowModelViewProjection(), armazenando matrizes 4x4.
     glm::mat4 the_projection;
     glm::mat4 the_model;
     glm::mat4 the_view;
@@ -401,6 +392,9 @@ int main(int argc, char* argv[])
     float bird_angle_y;
     bool is_bird_alive = true;
 
+    // Variaveis para a movimentação da lanterna
+    float flashlight_movement_angle = 0.0f;
+    float flashlight_angle_before_movement = flashlight_movement_angle;
 
     // Ficamos em loop, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -501,7 +495,6 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
         #define FLASHLIGHT 0
-        #define BUNNY  1
         #define PLANE  2
         #define WALL_X 3
         #define COW    4
@@ -516,12 +509,33 @@ int main(int argc, char* argv[])
         glm::vec4 flashlight_down_offset_vector = crossproduct(flashlight_left_offset_vector, camera_view_vector);
         flashlight_down_offset_vector = 0.1f * (flashlight_down_offset_vector / norm(flashlight_down_offset_vector));
 
+        // Trata movimentação da lanterna ao clicar X ou Z
+        if(g_isFlashlightTurningLeft)
+        {
+            flashlight_movement_angle += time_spent_on_loop * FLASHLIGHT_MOVEMENT_SPEED;
+
+            if(fabs(flashlight_angle_before_movement - flashlight_movement_angle) > FLASHLIGHT_MOVEMENT_STEP)
+            {
+                g_isFlashlightTurningLeft = false;
+                flashlight_angle_before_movement = flashlight_movement_angle;
+            }
+        }
+        else if(g_isFlashlightTurningRight)
+        {
+            flashlight_movement_angle -= time_spent_on_loop * FLASHLIGHT_MOVEMENT_SPEED;
+            if(fabs(flashlight_angle_before_movement - flashlight_movement_angle) > FLASHLIGHT_MOVEMENT_STEP)
+            {
+                g_isFlashlightTurningRight = false;
+                flashlight_angle_before_movement = flashlight_movement_angle;
+            }
+        }
+
         // Desenhamos o modelo da lanterna
         model = Matrix_Translate(g_CameraPosition.x + flashlight_left_offset_vector.x + flashlight_down_offset_vector.x + 0.4*camera_view_vector.x,
                                  g_CameraPosition.y + flashlight_left_offset_vector.y + flashlight_down_offset_vector.y + 0.4*camera_view_vector.y,
                                  g_CameraPosition.z + flashlight_left_offset_vector.z + flashlight_down_offset_vector.z + 0.4*camera_view_vector.z)
                 * Matrix_Scale(0.05f, 0.05f, 0.05f)
-                * Matrix_Rotate_Y(3.14 + g_CameraTheta)
+                * Matrix_Rotate_Y(3.14 + g_CameraTheta + flashlight_movement_angle)
                 * Matrix_Rotate_X(g_CameraPhi);
         glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         // Variaveis abaixo sao passadas para o shader para determinar a posicao da fonte de luz.
@@ -609,17 +623,6 @@ int main(int argc, char* argv[])
         DrawVirtualObject("sphere");
         
 
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(3.0f, -0.4f, 2.5f)
-              * Matrix_Scale(0.5f, 0.5f, 0.5f)
-              * Matrix_Rotate_Z(g_AngleZ)
-              * Matrix_Rotate_Y(g_AngleY)
-              * Matrix_Rotate_X(g_AngleX);
-        glUniformMatrix4fv(model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(object_id_uniform, BUNNY);
-        if (!game_over)
-            DrawVirtualObject("bunny");
-
         // Computa direcao do passaro em relacao ao jogador,
         // distancia entre eles,
         // e rotações necessarias.
@@ -663,7 +666,7 @@ int main(int argc, char* argv[])
 
         // Dados passados ao shader fragment uteis para o posicionamento da luz da lanterna
         // Controla se o personagem esta correndo ou caminhando
-        glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(camera_view_vector));
+        glUniform4fv(camera_view_vector_uniform, 1 , glm::value_ptr(Matrix_Rotate_Y(flashlight_movement_angle) * camera_view_vector));
         glUniform4fv(flashlight_left_offset_vector_uniform, 1 , glm::value_ptr(flashlight_left_offset_vector));
         glUniform4fv(flashlight_down_offset_vector_uniform, 1 , glm::value_ptr(flashlight_down_offset_vector));
 
@@ -1467,15 +1470,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
 
     if (game_over && key == GLFW_KEY_ENTER && action == GLFW_PRESS)
     {
@@ -1486,18 +1480,16 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         beginning_time = glfwGetTime();
     }
 
+    // Se o usuario apertar X, inicia movimentacao da lanterna para a direita
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
     {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+        g_isFlashlightTurningRight = true;
     }
 
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
+    // Se o usuario apertar X, inicia movimentacao da lanterna para a esquerda
     if (key == GLFW_KEY_Z && action == GLFW_PRESS)
     {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+        g_isFlashlightTurningLeft = true;
     }
 
     // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
@@ -1666,70 +1658,6 @@ void ErrorCallback(int error, const char* description)
 
 
 
-
-
-
-// TEXT RENDERING
-// Esta função recebe um vértice com coordenadas de modelo p_model e passa o
-// mesmo por todos os sistemas de coordenadas armazenados nas matrizes model,
-// view, e projection; e escreve na tela as matrizes e pontos resultantes
-// dessas transformações.
-void TextRendering_ShowModelViewProjection(
-    GLFWwindow* window,
-    glm::mat4 projection,
-    glm::mat4 view,
-    glm::mat4 model,
-    glm::vec4 p_model
-)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    glm::vec4 p_world = model*p_model;
-    glm::vec4 p_camera = view*p_world;
-
-    float pad = TextRendering_LineHeight(window);
-
-    TextRendering_PrintString(window, " Model matrix             Model     World", -1.0f, 1.0f-pad, 1.0f);
-    TextRendering_PrintMatrixVectorProduct(window, model, p_model, -1.0f, 1.0f-2*pad, 1.0f);
-
-    TextRendering_PrintString(window, " View matrix              World     Camera", -1.0f, 1.0f-7*pad, 1.0f);
-    TextRendering_PrintMatrixVectorProduct(window, view, p_world, -1.0f, 1.0f-8*pad, 1.0f);
-
-    TextRendering_PrintString(window, " Projection matrix        Camera                   NDC", -1.0f, 1.0f-13*pad, 1.0f);
-    TextRendering_PrintMatrixVectorProductDivW(window, projection, p_camera, -1.0f, 1.0f-14*pad, 1.0f);
-}
-
-// Escrevemos na tela os ângulos de Euler definidos nas variáveis globais
-// g_AngleX, g_AngleY, e g_AngleZ.
-void TextRendering_ShowEulerAngles(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    float pad = TextRendering_LineHeight(window);
-
-    char buffer[80];
-    snprintf(buffer, 80, "Euler Angles rotation matrix = Z(%.2f)*Y(%.2f)*X(%.2f)\n", g_AngleZ, g_AngleY, g_AngleX);
-
-    TextRendering_PrintString(window, buffer, -1.0f+pad/10, -1.0f+2*pad/10, 1.0f);
-}
-
-// Escrevemos na tela qual matriz de projeção está sendo utilizada.
-void TextRendering_ShowProjection(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
-
-    if ( g_UsePerspectiveProjection )
-        TextRendering_PrintString(window, "Perspective", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
-    else
-        TextRendering_PrintString(window, "Orthographic", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
-}
-
 // Escrevemos na tela o número de quadros renderizados por segundo (frames per
 // second).
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
@@ -1793,13 +1721,6 @@ void TextRendering_ShowGameOver(GLFWwindow* window)
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
     static char  buffer[30] = "Game Over! Score: 0";
-    static int   numchars = 22;
-
-    numchars = snprintf(buffer, 30, "Game Over! Score: %i", cow_counter);
-
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, -0.25f, 0.0f, 2.5f);
 
@@ -1811,13 +1732,6 @@ void TextRendering_ShowPlayAgain(GLFWwindow* window)
     // Variáveis estáticas (static) mantém seus valores entre chamadas
     // subsequentes da função!
     static char  buffer[30] = "Press Enter to Play Again";
-    static int   numchars = 25;
-
-    numchars = snprintf(buffer, 30, "Press Enter to Play Again", cow_counter);
-
-
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, -0.265f, -0.1f, 2.0f);
 
