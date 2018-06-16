@@ -152,6 +152,7 @@ float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 glm::vec4 g_CameraPosition = glm::vec4(0.0f,0.0f,0.0f,1.0f);
+glm::vec4 g_LookAtPosition = glm::vec4(0.0f,0.0f,0.0f,1.0f);
 
 // Variavel que controla o tipo de camera
 bool g_UseFreeCamera = true;
@@ -440,8 +441,8 @@ int main(int argc, char* argv[])
             float vy = r*sin(g_CameraPhi);
             float vz = r*cos(g_CameraPhi)*cos(g_CameraTheta);
             float vx = r*cos(g_CameraPhi)*sin(g_CameraTheta);
-            g_CameraPosition  = glm::vec4(vx,vy,vz,1.0f); // Ponto "c", centro da câmera
-            camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            g_CameraPosition  = glm::vec4(vx + g_LookAtPosition.x,vy + g_LookAtPosition.y,vz + g_LookAtPosition.z,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_l    = g_LookAtPosition; // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vector = camera_lookat_l - g_CameraPosition; // Vetor "view", sentido para onde a câmera está virada
         }
 
@@ -1534,6 +1535,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
         g_UseFreeCamera = !g_UseFreeCamera;
+        g_LookAtPosition = g_CameraPosition;
         g_CameraPosition.y = 0.0f;
     }
 
