@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 
 // Headers abaixo são específicos de C++
 #include <map>
