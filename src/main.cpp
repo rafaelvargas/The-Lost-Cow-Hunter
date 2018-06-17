@@ -254,8 +254,6 @@ int main(int argc, char* argv[])
         std::exit(EXIT_FAILURE);
     }
 
-    printf("AAA %i AAA\n", NUM_OF_BUNNIES);
-
     // Definimos o callback para impressão de erros da GLFW no terminal
     glfwSetErrorCallback(ErrorCallback);
 
@@ -387,7 +385,6 @@ int main(int argc, char* argv[])
     // Variaveis para animação da vaca
     double time = glfwGetTime();
     double speed = 0.4;
-    double rotation_speed = 0.1f;
     bool move_up = false;
 
     // Variaveis para os passaros

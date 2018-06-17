@@ -73,7 +73,7 @@ void main()
 
     // Spotlight
     vec4 spotlight_position = camera_position
-                            + 0.55*camera_view_vector
+                            + 0.7*camera_view_vector
                             + spotlight_down_offset_vector
                             + spotlight_left_offset_vector;
     vec4 spotlight_orientation = camera_view_vector;
