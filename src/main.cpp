@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
     // redimensionada, por consequência alterando o tamanho do "framebuffer"
     // (região de memória onde são armazenados os pixels da imagem).
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-    FramebufferSizeCallback(window, 800, 600); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
+    FramebufferSizeCallback(window, mode->width, mode->height); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
 
     // Imprimimos no terminal informações sobre a GPU do sistema
     const GLubyte *vendor      = glGetString(GL_VENDOR);
@@ -650,7 +650,7 @@ int main(int argc, char* argv[])
         {
             is_bird_alive = false;
         }
-        
+
         bird_position.x = bird_position.x + time_step * BIRD_SPEED *bird_movement_direction.x;
         bird_position.y = bird_position.y + time_step * BIRD_SPEED *bird_movement_direction.y;
         bird_position.z = bird_position.z + time_step * BIRD_SPEED *bird_movement_direction.z;
