@@ -1840,6 +1840,8 @@ void TextRendering_ShowGameOver(GLFWwindow* window)
     // subsequentes da função!
     static char  buffer[30] = "Game Over! Score: 0";
 
+    snprintf(buffer, 30, "Game Over! Score: %d", cow_counter);
+
     TextRendering_PrintString(window, buffer, -0.25f, 0.0f, 2.5f);
 
 }
