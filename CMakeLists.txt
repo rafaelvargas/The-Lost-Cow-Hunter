@@ -9,6 +9,7 @@ else (OPENGL_FOUND)
   MESSAGE("OpenGL environment missing")
 endif()
 
+set(CMAKE_CXX_FLAGS "-std=c++17")
 
 include_directories(include)
 file(GLOB SOURCES "src/*.cpp")
