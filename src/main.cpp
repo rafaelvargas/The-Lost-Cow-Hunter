@@ -318,42 +318,42 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos uma imagem para ser utilizada como textura
-    LoadTextureImage("../../data/earth.jpg", 1);
-    LoadTextureImage("../../data/earth.jpg", 2);
-    LoadTextureImage("../../data/FlashlightTexture.jpg", 3);
-    LoadTextureImage("../../data/sky.jpg", 4);
-    LoadTextureImage("../../data/gold.jpg", 5);
-    LoadTextureImage("../../data/wall.jpg", 6);
-    LoadTextureImage("../../data/grass.png", 7);
-    LoadTextureImage("../../data/AlienBirdTexture.png", 8);
-    LoadTextureImage("../../data/rock.jpg", 9);
+    LoadTextureImage("../data/earth.jpg", 1);
+    LoadTextureImage("../data/earth.jpg", 2);
+    LoadTextureImage("../data/FlashlightTexture.jpg", 3);
+    LoadTextureImage("../data/sky.jpg", 4);
+    LoadTextureImage("../data/gold.jpg", 5);
+    LoadTextureImage("../data/wall.jpg", 6);
+    LoadTextureImage("../data/grass.png", 7);
+    LoadTextureImage("../data/AlienBirdTexture.png", 8);
+    LoadTextureImage("../data/rock.jpg", 9);
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
-    ObjModel flashlightmodel("../../data/flashlight.obj");
+    ObjModel flashlightmodel("../data/flashlight.obj");
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
-    ObjModel planemodel("../../data/plane.obj");
+    ObjModel planemodel("../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
-    ObjModel cubemodel("../../data/cube.obj");
+    ObjModel cubemodel("../data/cube.obj");
     ComputeNormals(&cubemodel);
     BuildTrianglesAndAddToVirtualScene(&cubemodel);
 
-    ObjModel cowmodel("../../data/cow.obj");
+    ObjModel cowmodel("../data/cow.obj");
     ComputeNormals(&cowmodel);
     BuildTrianglesAndAddToVirtualScene(&cowmodel);
 
-    ObjModel worldmodel("../../data/sphere.obj");
+    ObjModel worldmodel("../data/sphere.obj");
     ComputeNormals(&worldmodel);
     BuildTrianglesAndAddToVirtualScene(&worldmodel);
 
-    ObjModel birdmodel("../../data/AlienBird.obj");
+    ObjModel birdmodel("../data/AlienBird.obj");
     ComputeNormals(&birdmodel);
     BuildTrianglesAndAddToVirtualScene(&birdmodel);
 
-    ObjModel bunnymodel("../../data/bunny.obj");
+    ObjModel bunnymodel("../data/bunny.obj");
     ComputeNormals(&bunnymodel);
     BuildTrianglesAndAddToVirtualScene(&bunnymodel);
 
@@ -876,8 +876,8 @@ void LoadShadersFromFiles()
     //       |
     //       o-- shader_fragment.glsl
     //
-    vertex_shader_id = LoadShader_Vertex("../../src/shader_vertex.glsl");
-    fragment_shader_id = LoadShader_Fragment("../../src/shader_fragment.glsl");
+    vertex_shader_id = LoadShader_Vertex("../src/shader_vertex.glsl");
+    fragment_shader_id = LoadShader_Fragment("../src/shader_fragment.glsl");
 
     // Deletamos o programa de GPU anterior, caso ele exista.
     if ( program_id != 0 )

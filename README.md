@@ -2,15 +2,15 @@
 
 OpenGL game implementation.
 
-## How to run
+## Compilation
+```bash
+mkdir build
+cd build
+cmake ..
+make
+```
 
-### Ubuntu
-* Navigate to root folder via command line.
-* Execute the following command:
-    
-        make run
-		
-### CodeBlocks
-* Open CodeBlocks project
-		
-		The-Lost-Cow-Hunter.cbp
+## Running
+```bash
+./the-lost-cow-hunter
+```
